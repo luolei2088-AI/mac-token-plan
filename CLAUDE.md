@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目
 
-mac-token-plan：macOS 桌面常驻小组件，在桌面上直接显示订阅的各模型额度消耗。当前接入 minimax 月度订阅 + 火山方舟 Agent Plan 月度订阅。形态为桌面常驻透明卡片窗口（NSPanel + SwiftUI），非菜单栏、非 WidgetKit。
+mac-token-plan：macOS 桌面常驻小组件，在桌面上直接显示订阅的各模型额度消耗。当前接入 minimax 月度订阅 + 火山方舟 Agent Plan 月度订阅。形态为桌面常驻透明卡片窗口（NSPanel + SwiftUI）+ 可选的 macOS 菜单栏（NSStatusItem）滚动显示。非菜单栏独占、非 WidgetKit。
 
 ## 构建与运行
 
@@ -26,8 +26,9 @@ mac-token-plan：macOS 桌面常驻小组件，在桌面上直接显示订阅的
   - `VolcEngineProvider`：GET `open.volcengineapi.com/?Action=GetAFPUsage&Version=2024-01-01`，**火山引擎 V4 签名**（AK/SK，serviceCode=ark，region=cn-north-1）。ark Bearer key 不能查 Agent Plan 额度，必须 AK/SK 签名。返回 5h/7d/月度总额度/今日（今日已隐藏）。
 - **Store/QuotaStore** - `@MainActor ObservableObject`。定时刷新（默认 5 分钟，可配）、错误降级、固定顺序（minimax 上、火山下）。
 - **Window/DesktopPanel** - NSPanel 子类。无边框透明圆角卡片，固定 200×243，`isMovableByWindowBackground` 可拖动。**窗口层级高于菜单栏**（`mainMenuWindow + 1`，可拖到物理顶部，代价是覆盖菜单栏）。`constrainFrameRect` 重写用 `screen.frame` 允许贴物理左/右/下边缘。frame 持久化到 UserDefaults。
+- **Window/MenuBarController** - `NSStatusItem` 控制器（设置开关控制，默认关闭）。订阅 `QuotaStore.objectWillChange` 自动重建段文本，5 秒 `Timer` 切换，循环。点击 status item 弹出 `NSMenu`（立即刷新 / 打开设置 / 退出），菜单回调通过 `MenuActions` 闭包注入，避免反向依赖 AppDelegate。NSStatusBar 由系统独占，与 NSPanel 窗口层级无冲突。
 - **Views/** - SwiftUI（NSHostingView）。`WidgetCard`（卡片+右键菜单+刷新按钮）、`QuotaRow`（胶囊进度条+状态色+倒计时）、`SettingsView`（配置面板，Combine 绑定即时生效）。
-- **App/AppMain** - AppKit 入口（NSApplication，accessory 策略不显 Dock）。AppDelegate 管窗口+store+settings。
+- **App/AppMain** - AppKit 入口（NSApplication，accessory 策略不显 Dock）。AppDelegate 管窗口+store+settings+menuBarController。
 - **Security/** - `EnvConfig`（读写 .env）、`LaunchAtLoginHelper`（SMAppService）、`KeychainHelper`（历史方案，保留未用）。
 - **Models/** - `QuotaBucket`（label/used/limit/percentOnly/resetTime，自定义 init 带默认值）、`ProviderQuota`、`AppSettings`。
 
@@ -48,6 +49,7 @@ VOLC_SK=...
 - 倒计时：5h 行 `H:MM分钟后重置`（小时为 0 则 `MM分钟后重置`），7d 行 `X天Y小时后重置`。`Timer.publish(every:1)` 每秒驱动 `now` 实时递减，独立于接口刷新；接口刷新拿到新 resetTime 后倒计时自动重置。
 - UI 文案中文，代码/标识符英文。
 - 刷新失败保留旧数据并标红，不闪空。
+- 菜单栏段文本格式：`Minimax 5h:10% 7d:20%`，过滤受 `AppSettings.shouldShow(label)` 控制的维度；首次加载前显示 `加载中…`；失败 provider 显示 `Provider: 获取失败`。
 
 ## 自主边界（红线，必须先问）
 

@@ -18,6 +18,7 @@ enum AppMain {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var panel: DesktopPanel?
     private var settingsWindow: NSWindow?
+    private var menuBarController: MenuBarController?
     private let store = QuotaStore()
     private let settings = AppSettings()
     private var cancellables = Set<AnyCancellable>()
@@ -32,12 +33,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let panel = DesktopPanel(contentView: card)
         panel.delegate = self
         panel.applyLevel(settings.windowLevel)
+        panel.applyMovable(settings.lockPosition)
         panel.show()
         self.panel = panel
         store.start()
 
         if settings.launchAtLogin { LaunchAtLoginHelper.set(true) }
         bindSettings()
+
+        menuBarController = MenuBarController(
+            store: store,
+            settings: settings,
+            actions: MenuBarController.MenuActions(
+                refresh: { [weak self] in self?.store.refresh() },
+                openSettings: { [weak self] in self?.openSettings() },
+                quit: { NSApp.terminate(nil) }
+            )
+        )
     }
 
     // MARK: - 设置即时生效
@@ -47,6 +59,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .store(in: &cancellables)
         settings.$windowLevel
             .sink { [weak self] v in self?.panel?.applyLevel(v) }
+            .store(in: &cancellables)
+        settings.$lockPosition
+            .sink { [weak self] v in self?.panel?.applyMovable(v) }
             .store(in: &cancellables)
         settings.$enabledMinimax
             .merge(with: settings.$enabledVolcengine)

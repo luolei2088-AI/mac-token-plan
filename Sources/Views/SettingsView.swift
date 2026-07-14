@@ -16,6 +16,9 @@ struct SettingsView: View {
                         LaunchAtLoginHelper.set(v)
                     }
             }
+            Section("菜单栏") {
+                Toggle("在菜单栏中显示", isOn: $settings.showMenuBarScrolling)
+            }
             Section("平台") {
                 Toggle("MiniMax 月度订阅", isOn: $settings.enabledMinimax)
                 Toggle("火山方舟 Agent Plan", isOn: $settings.enabledVolcengine)
@@ -43,6 +46,7 @@ struct SettingsView: View {
                 }
             }
             Section("窗口") {
+                Toggle("固定位置（禁止拖动）", isOn: $settings.lockPosition)
                 Picker("层级", selection: $settings.windowLevel) {
                     ForEach(WindowLevelPref.allCases, id: \.self) { Text($0.label).tag($0) }
                 }

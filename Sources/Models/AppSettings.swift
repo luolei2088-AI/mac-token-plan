@@ -28,6 +28,8 @@ final class AppSettings: ObservableObject {
     @Published var cornerRadius: Double { didSet { d.set(cornerRadius, forKey: "corner_radius") } }
     @Published var theme: ThemePref { didSet { d.set(theme.rawValue, forKey: "theme") } }
     @Published var launchAtLogin: Bool { didSet { d.set(launchAtLogin, forKey: "launch_at_login") } }
+    @Published var lockPosition: Bool { didSet { d.set(lockPosition, forKey: "lock_position") } }
+    @Published var showMenuBarScrolling: Bool { didSet { d.set(showMenuBarScrolling, forKey: "show_menu_bar_scrolling") } }
 
     init() {
         enabledMinimax = d.object(forKey: "enabled_minimax") as? Bool ?? true
@@ -41,6 +43,8 @@ final class AppSettings: ObservableObject {
         cornerRadius = d.object(forKey: "corner_radius") as? Double ?? 16
         theme = ThemePref(rawValue: d.string(forKey: "theme") ?? "system") ?? .system
         launchAtLogin = d.object(forKey: "launch_at_login") as? Bool ?? false
+        lockPosition = d.object(forKey: "lock_position") as? Bool ?? false
+        showMenuBarScrolling = d.object(forKey: "show_menu_bar_scrolling") as? Bool ?? false
     }
 
     func shouldShow(_ label: String) -> Bool {

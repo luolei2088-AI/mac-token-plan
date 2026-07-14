@@ -20,8 +20,14 @@ final class QuotaStore: ObservableObject {
     }
 
     /// 注入 Provider（由 AppDelegate 在配置或开关变化时调用）。
+    /// 同步剔除已不在新列表中的 ProviderQuota，避免 toggle off 后 UI 仍显示旧段。
     func configure(providers: [QuotaProvider]) {
         self.providers = providers
+        let validIDs = Set(providers.map { $0.id })
+        let filtered = self.quotas.filter { validIDs.contains($0.id) }
+        if filtered.count != self.quotas.count {
+            self.quotas = filtered
+        }
     }
 
     func setRefreshInterval(_ v: TimeInterval) {
@@ -49,8 +55,10 @@ final class QuotaStore: ObservableObject {
     }
 
     /// 并发拉取所有 Provider；失败的保留旧 buckets 并置 error，不闪空。
+    /// 收尾时丢弃已被 configure() 剔除的 ID，防止 in-flight 写回 stale 段。
     private func fetchAll() async {
         let snapshot = providers
+        let snapshotIDs = Set(snapshot.map { $0.id })
         let fetched = await withTaskGroup(of: ProviderQuota?.self) { group in
             for p in snapshot {
                 group.addTask {
@@ -79,12 +87,13 @@ final class QuotaStore: ObservableObject {
                 merged.append(r)
             }
         }
-        // 固定顺序：minimax 在上，火山在下
-        let order = ["minimax", "volcengine"]
+        // 固定顺序：minimax 上、智谱 GLM 中、火山下；并排除已被 configure 剔除的 ID
+        let order = ["minimax", "zhipu_glm", "volcengine"]
+        let currentIDs = Set(providers.map { $0.id })
         self.quotas = merged.sorted {
             let a = order.firstIndex(of: $0.id) ?? Int.max
             let b = order.firstIndex(of: $1.id) ?? Int.max
             return a < b
-        }
+        }.filter { snapshotIDs.contains($0.id) && currentIDs.contains($0.id) }
     }
 }

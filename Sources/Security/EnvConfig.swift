@@ -8,6 +8,7 @@ enum EnvConfig {
     static let minimaxApiKey = "MINIMAX_API_KEY"
     static let volcAk = "VOLC_AK"
     static let volcSk = "VOLC_SK"
+    static let zhipuGlmApiKey = "ZHIPU_GLM_API_KEY"
 
     private static var envURL: URL? {
         let candidates = [

@@ -16,8 +16,10 @@ release:
 app: release
 	@mkdir -p $(APP_BUNDLE)/Contents/MacOS
 	@mkdir -p $(APP_BUNDLE)/Contents/Resources
+	./build-icon.sh
 	cp $(BUILD_DIR)/release/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
 	cp Resources/Info.plist $(APP_BUNDLE)/Contents/
+	cp Resources/AppIcon.icns $(APP_BUNDLE)/Contents/Resources/
 	codesign --force --deep --sign - $(APP_BUNDLE)
 	@echo "Built $(APP_BUNDLE)"
 

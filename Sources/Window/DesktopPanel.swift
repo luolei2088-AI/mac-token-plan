@@ -36,6 +36,17 @@ final class DesktopPanel: NSPanel {
         }
     }
 
+    /// 固定位置：锁定后禁止背景拖动、窗口移动与调整大小。
+    func applyMovable(_ locked: Bool) {
+        isMovableByWindowBackground = !locked
+        isMovable = !locked
+        if locked {
+            styleMask.remove(.resizable)
+        } else {
+            styleMask.insert(.resizable)
+        }
+    }
+
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
         guard let scr = screen ?? NSScreen.main else { return frameRect }
         let r = scr.frame

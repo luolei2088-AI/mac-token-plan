@@ -18,6 +18,7 @@ final class AppSettings: ObservableObject {
     private let d = UserDefaults.standard
 
     @Published var enabledMinimax: Bool { didSet { d.set(enabledMinimax, forKey: "enabled_minimax") } }
+    @Published var enabledZhipuGLM: Bool { didSet { d.set(enabledZhipuGLM, forKey: "enabled_zhipu_glm") } }
     @Published var enabledVolcengine: Bool { didSet { d.set(enabledVolcengine, forKey: "enabled_volcengine") } }
     @Published var refreshInterval: Double { didSet { d.set(refreshInterval, forKey: "refresh_interval") } }
     @Published var windowLevel: WindowLevelPref { didSet { d.set(windowLevel.rawValue, forKey: "window_level") } }
@@ -33,6 +34,7 @@ final class AppSettings: ObservableObject {
 
     init() {
         enabledMinimax = d.object(forKey: "enabled_minimax") as? Bool ?? true
+        enabledZhipuGLM = d.object(forKey: "enabled_zhipu_glm") as? Bool ?? false
         enabledVolcengine = d.object(forKey: "enabled_volcengine") as? Bool ?? true
         refreshInterval = d.object(forKey: "refresh_interval") as? Double ?? 300
         windowLevel = WindowLevelPref(rawValue: d.string(forKey: "window_level") ?? "floating") ?? .floating

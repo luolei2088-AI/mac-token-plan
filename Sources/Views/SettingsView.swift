@@ -4,6 +4,7 @@ struct SettingsView: View {
     @ObservedObject var settings: AppSettings
     var onSaved: () -> Void
     @State private var minimaxKey = EnvConfig.get(EnvConfig.minimaxApiKey) ?? ""
+    @State private var zhipuGlmKey = EnvConfig.get(EnvConfig.zhipuGlmApiKey) ?? ""
     @State private var volcAk = EnvConfig.get(EnvConfig.volcAk) ?? ""
     @State private var volcSk = EnvConfig.get(EnvConfig.volcSk) ?? ""
     @State private var saved = false
@@ -21,10 +22,12 @@ struct SettingsView: View {
             }
             Section("平台") {
                 Toggle("MiniMax 月度订阅", isOn: $settings.enabledMinimax)
+                Toggle("智谱 GLM Coding Plan", isOn: $settings.enabledZhipuGLM)
                 Toggle("火山方舟 Agent Plan", isOn: $settings.enabledVolcengine)
             }
             Section("API 凭证（存入项目 .env）") {
                 SecureField("MiniMax API Key", text: $minimaxKey)
+                SecureField("智谱 GLM API Key", text: $zhipuGlmKey)
                 SecureField("火山 Access Key (AK)", text: $volcAk)
                 SecureField("火山 Secret Key (SK)", text: $volcSk)
                 HStack {
@@ -65,6 +68,7 @@ struct SettingsView: View {
 
     private func saveCredentials() {
         EnvConfig.set(EnvConfig.minimaxApiKey, minimaxKey)
+        EnvConfig.set(EnvConfig.zhipuGlmApiKey, zhipuGlmKey)
         EnvConfig.set(EnvConfig.volcAk, volcAk)
         EnvConfig.set(EnvConfig.volcSk, volcSk)
         saved = true

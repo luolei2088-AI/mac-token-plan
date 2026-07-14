@@ -64,7 +64,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .sink { [weak self] v in self?.panel?.applyMovable(v) }
             .store(in: &cancellables)
         settings.$enabledMinimax
-            .merge(with: settings.$enabledVolcengine)
+            .merge(with: settings.$enabledZhipuGLM,
+                   settings.$enabledVolcengine)
+            // @Published 在 willSet 时发 publisher；sink 内读 self.settings.enabledX 会拿到旧值。
+            // 用 receive(on:) 推到下一个 runloop，等 willSet / storage 完成后再读。
+            .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.store.configure(providers: self.buildProviders())
@@ -79,6 +83,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if settings.enabledMinimax,
            let key = EnvConfig.get(EnvConfig.minimaxApiKey), !key.isEmpty {
             ps.append(MinimaxProvider(apiKey: key))
+        }
+        if settings.enabledZhipuGLM,
+           let key = EnvConfig.get(EnvConfig.zhipuGlmApiKey), !key.isEmpty {
+            ps.append(ZhipuGLMProvider(apiKey: key))
         }
         if settings.enabledVolcengine,
            let ak = EnvConfig.get(EnvConfig.volcAk), !ak.isEmpty,

@@ -2,6 +2,10 @@
 
 macOS 桌面常驻小组件，在桌面上直接显示订阅的各模型额度消耗。类似系统日历小组件，贴在桌面上随时可见，不用打开浏览器查控制台。
 
+## 效果预览
+
+![mac-token-plan 桌面小组件](https://zgkc-storage.oss-cn-beijing.aliyuncs.com/mcp-test/11.png)
+
 ## 支持平台
 
 - **MiniMax 月度订阅**：5小时 / 7天额度（general 模型）

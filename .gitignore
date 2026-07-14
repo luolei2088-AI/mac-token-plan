@@ -1,0 +1,9 @@
+.build/
+.swiftpm/
+*.xcodeproj
+DerivedData/
+Packages/
+*.app
+.env
+.DS_Store
+.claude/

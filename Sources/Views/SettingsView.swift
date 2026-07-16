@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var zhipuGlmKey = EnvConfig.get(EnvConfig.zhipuGlmApiKey) ?? ""
     @State private var volcAk = EnvConfig.get(EnvConfig.volcAk) ?? ""
     @State private var volcSk = EnvConfig.get(EnvConfig.volcSk) ?? ""
+    @State private var codexToken = EnvConfig.get(EnvConfig.codexAccessToken) ?? ""
     @State private var saved = false
 
     var body: some View {
@@ -24,12 +25,16 @@ struct SettingsView: View {
                 Toggle("MiniMax 月度订阅", isOn: $settings.enabledMinimax)
                 Toggle("智谱 GLM Coding Plan", isOn: $settings.enabledZhipuGLM)
                 Toggle("火山方舟 Agent Plan", isOn: $settings.enabledVolcengine)
+                Toggle("Codex 订阅", isOn: $settings.enabledCodex)
             }
             Section("API 凭证（存入项目 .env）") {
                 SecureField("MiniMax API Key", text: $minimaxKey)
                 SecureField("智谱 GLM API Key", text: $zhipuGlmKey)
                 SecureField("火山 Access Key (AK)", text: $volcAk)
                 SecureField("火山 Secret Key (SK)", text: $volcSk)
+                SecureField("Codex Access Token（留空则自动读 codex CLI）", text: $codexToken)
+                Text("留空时自动从本地 codex CLI 登录态读取，无需手动粘贴。")
+                    .font(.caption2).foregroundStyle(.secondary)
                 HStack {
                     Button("保存凭证") { saveCredentials() }
                     if saved { Text("已保存").foregroundStyle(.green).font(.caption) }
@@ -71,6 +76,7 @@ struct SettingsView: View {
         EnvConfig.set(EnvConfig.zhipuGlmApiKey, zhipuGlmKey)
         EnvConfig.set(EnvConfig.volcAk, volcAk)
         EnvConfig.set(EnvConfig.volcSk, volcSk)
+        EnvConfig.set(EnvConfig.codexAccessToken, codexToken)
         saved = true
         onSaved()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { saved = false }

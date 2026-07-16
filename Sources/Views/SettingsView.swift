@@ -50,6 +50,9 @@ struct SettingsView: View {
             }
             Section("窗口") {
                 Toggle("固定位置（禁止拖动）", isOn: $settings.lockPosition)
+                Text("关闭固定后可在卡片任意位置拖动，按住四角可调整窗口大小。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Picker("层级", selection: $settings.windowLevel) {
                     ForEach(WindowLevelPref.allCases, id: \.self) { Text($0.label).tag($0) }
                 }

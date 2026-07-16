@@ -9,6 +9,7 @@ enum EnvConfig {
     static let volcAk = "VOLC_AK"
     static let volcSk = "VOLC_SK"
     static let zhipuGlmApiKey = "ZHIPU_GLM_API_KEY"
+    static let codexAccessToken = "CODEX_ACCESS_TOKEN"
 
     private static var envURL: URL? {
         let candidates = [

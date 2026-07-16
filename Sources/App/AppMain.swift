@@ -65,7 +65,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .store(in: &cancellables)
         settings.$enabledMinimax
             .merge(with: settings.$enabledZhipuGLM,
-                   settings.$enabledVolcengine)
+                   settings.$enabledVolcengine,
+                   settings.$enabledCodex)
             // @Published 在 willSet 时发 publisher；sink 内读 self.settings.enabledX 会拿到旧值。
             // 用 receive(on:) 推到下一个 runloop，等 willSet / storage 完成后再读。
             .receive(on: RunLoop.main)
@@ -77,7 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .store(in: &cancellables)
     }
 
-    /// 按启用状态 + 已配置凭证构建 Provider。凭证从项目 .env 读取。
+    /// 按启用状态 + 已配置凭证构建 Provider。Codex 凭证由 CodexCredential 提供（codex CLI auth.json 优先，回退 .env），其余平台从 .env 读取。
     private func buildProviders() -> [QuotaProvider] {
         var ps: [QuotaProvider] = []
         if settings.enabledMinimax,
@@ -92,6 +93,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
            let ak = EnvConfig.get(EnvConfig.volcAk), !ak.isEmpty,
            let sk = EnvConfig.get(EnvConfig.volcSk), !sk.isEmpty {
             ps.append(VolcEngineProvider(ak: ak, sk: sk))
+        }
+        if settings.enabledCodex, let cred = CodexCredential.load() {
+            ps.append(CodexProvider(accessToken: cred.accessToken))
         }
         return ps
     }

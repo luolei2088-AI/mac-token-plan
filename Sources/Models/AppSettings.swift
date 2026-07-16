@@ -20,6 +20,7 @@ final class AppSettings: ObservableObject {
     @Published var enabledMinimax: Bool { didSet { d.set(enabledMinimax, forKey: "enabled_minimax") } }
     @Published var enabledZhipuGLM: Bool { didSet { d.set(enabledZhipuGLM, forKey: "enabled_zhipu_glm") } }
     @Published var enabledVolcengine: Bool { didSet { d.set(enabledVolcengine, forKey: "enabled_volcengine") } }
+    @Published var enabledCodex: Bool { didSet { d.set(enabledCodex, forKey: "enabled_codex") } }
     @Published var refreshInterval: Double { didSet { d.set(refreshInterval, forKey: "refresh_interval") } }
     @Published var windowLevel: WindowLevelPref { didSet { d.set(windowLevel.rawValue, forKey: "window_level") } }
     @Published var show5h: Bool { didSet { d.set(show5h, forKey: "show_5h") } }
@@ -36,6 +37,7 @@ final class AppSettings: ObservableObject {
         enabledMinimax = d.object(forKey: "enabled_minimax") as? Bool ?? true
         enabledZhipuGLM = d.object(forKey: "enabled_zhipu_glm") as? Bool ?? false
         enabledVolcengine = d.object(forKey: "enabled_volcengine") as? Bool ?? true
+        enabledCodex = d.object(forKey: "enabled_codex") as? Bool ?? false
         refreshInterval = d.object(forKey: "refresh_interval") as? Double ?? 300
         windowLevel = WindowLevelPref(rawValue: d.string(forKey: "window_level") ?? "floating") ?? .floating
         show5h = d.object(forKey: "show_5h") as? Bool ?? true

@@ -87,8 +87,8 @@ final class QuotaStore: ObservableObject {
                 merged.append(r)
             }
         }
-        // 固定顺序：minimax 上、智谱 GLM 中、火山下；并排除已被 configure 剔除的 ID
-        let order = ["minimax", "zhipu_glm", "volcengine"]
+        // 固定顺序：minimax 上、智谱 GLM 中、火山下、Codex 末；并排除已被 configure 剔除的 ID
+        let order = ["minimax", "zhipu_glm", "volcengine", "codex"]
         let currentIDs = Set(providers.map { $0.id })
         self.quotas = merged.sorted {
             let a = order.firstIndex(of: $0.id) ?? Int.max

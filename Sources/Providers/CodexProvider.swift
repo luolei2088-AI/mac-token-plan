@@ -16,12 +16,33 @@ private let codexLog = OSLog(subsystem: "com.luolei.mac-token-plan", category: "
 final class CodexProvider: QuotaProvider {
     let id = "codex"
     let displayName = "Codex 订阅"
-    private let accessToken: String
+    private let credentialLoader: () -> CodexCredential?
 
-    init(accessToken: String) { self.accessToken = accessToken }
+    init(credentialLoader: @escaping () -> CodexCredential?) {
+        self.credentialLoader = credentialLoader
+    }
 
     func fetchQuota() async throws -> [QuotaBucket] {
-        guard !accessToken.isEmpty else { throw ProviderError.notConfigured }
+        guard let credential = credentialLoader(), !credential.accessToken.isEmpty else {
+            throw ProviderError.notConfigured
+        }
+        do {
+            return try await fetchQuota(accessToken: credential.accessToken)
+        } catch CodexAuthenticationError.rejected(let code) {
+            guard let freshCredential = credentialLoader(),
+                  !freshCredential.accessToken.isEmpty,
+                  freshCredential.accessToken != credential.accessToken else {
+                throw Self.authenticationError(statusCode: code)
+            }
+            do {
+                return try await fetchQuota(accessToken: freshCredential.accessToken)
+            } catch CodexAuthenticationError.rejected(let retryCode) {
+                throw Self.authenticationError(statusCode: retryCode)
+            }
+        }
+    }
+
+    private func fetchQuota(accessToken: String) async throws -> [QuotaBucket] {
         var req = URLRequest(url: URL(string: "https://chatgpt.com/backend-api/wham/usage")!)
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -37,7 +58,7 @@ final class CodexProvider: QuotaProvider {
         let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
         guard code == 200 else {
             if code == 401 || code == 403 {
-                throw ProviderError.apiError("Codex 凭证失效（HTTP \(code)），请重新提取 access token")
+                throw CodexAuthenticationError.rejected(statusCode: code)
             }
             throw ProviderError.httpError(code)
         }
@@ -74,6 +95,10 @@ final class CodexProvider: QuotaProvider {
         return buckets
     }
 
+    private static func authenticationError(statusCode: Int) -> ProviderError {
+        .apiError("Codex 凭证失效（HTTP \(statusCode)），请重新登录 Codex CLI 或更新 .env")
+    }
+
     /// 把窗口秒数翻译成中文标签。固定窗口识别 5h / 7d / 1d；±5% 容差吸收秒数漂移。
     private static func label(forSeconds s: Double) -> String {
         if abs(s - 5 * 3600) < 5 * 3600 * 0.05 { return "5小时" }
@@ -82,6 +107,10 @@ final class CodexProvider: QuotaProvider {
         let hours = Int(s / 3600)
         return "\(hours)小时"
     }
+}
+
+private enum CodexAuthenticationError: Error {
+    case rejected(statusCode: Int)
 }
 
 // MARK: - 响应模型

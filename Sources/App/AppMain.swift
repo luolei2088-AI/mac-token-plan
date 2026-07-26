@@ -94,8 +94,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
            let sk = EnvConfig.get(EnvConfig.volcSk), !sk.isEmpty {
             ps.append(VolcEngineProvider(ak: ak, sk: sk))
         }
-        if settings.enabledCodex, let cred = CodexCredential.load() {
-            ps.append(CodexProvider(accessToken: cred.accessToken))
+        if settings.enabledCodex {
+            ps.append(CodexProvider(credentialLoader: { CodexCredential.load() }))
         }
         return ps
     }

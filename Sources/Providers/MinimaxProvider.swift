@@ -49,9 +49,13 @@ final class MinimaxProvider: QuotaProvider {
         if total > 0 {
             return QuotaBucket(label: label, used: Double(usage), limit: Double(total), percentOnly: true, resetTime: resetTime)
         }
-        if let p = percent, p > 0, let r = remains {
-            let limit = r / (p / 100.0)
-            return QuotaBucket(label: label, used: limit - r, limit: limit, percentOnly: true, resetTime: resetTime)
+        if let p = percent, let r = remains {
+            if p > 0 {
+                let limit = r / (p / 100.0)
+                return QuotaBucket(label: label, used: limit - r, limit: limit, percentOnly: true, resetTime: resetTime)
+            }
+            // 额度已用完：返回满桶，让进度条 100% 红色显示而非整行消失。
+            return QuotaBucket(label: label, used: 1, limit: 1, percentOnly: true, resetTime: resetTime)
         }
         return nil
     }

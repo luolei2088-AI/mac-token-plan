@@ -44,9 +44,9 @@ final class ZhipuGLMProvider: QuotaProvider {
             throw ProviderError.apiError("额度数据为空")
         }
 
-        // 显示顺序：TIME_LIMIT 在前（5小时窗口），后跟 TOKENS_LIMIT（总额度）
+        // 显示顺序：TIME_LIMIT 在前（5小时窗口），后跟 TOKENS_LIMIT（总额度）、CREDIT_LIMIT（2026-08 改版新格式）
         var buckets: [QuotaBucket] = []
-        let displayOrder: [String] = ["TIME_LIMIT", "TOKENS_LIMIT"]
+        let displayOrder: [String] = ["TIME_LIMIT", "TOKENS_LIMIT", "CREDIT_LIMIT"]
         for type in displayOrder {
             let sameTypeCount = limits.filter { $0.type == type }.count
             var posInType = 0
@@ -57,6 +57,16 @@ final class ZhipuGLMProvider: QuotaProvider {
                 switch type {
                 case "TIME_LIMIT":   baseLabel = "5小时"
                 case "TOKENS_LIMIT": baseLabel = "总额度"
+                case "CREDIT_LIMIT":
+                    // 智谱 2026-08 改版：窗口统一为 CREDIT_LIMIT，unit 区分类型：
+                    // unit=3 → 小时窗口（number=小时数，如 5）；unit=6 → 7天窗口
+                    if limit.unit == 3 {
+                        baseLabel = limit.number == 5 ? "5小时" : "\(limit.number ?? 0)小时"
+                    } else if limit.unit == 6 {
+                        baseLabel = "7天"
+                    } else {
+                        continue
+                    }
                 default: continue
                 }
                 let label = sameTypeCount > 1 ? "\(baseLabel)·\(posInType)" : baseLabel

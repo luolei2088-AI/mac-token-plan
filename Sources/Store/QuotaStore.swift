@@ -1,5 +1,7 @@
 import Foundation
 import SwiftUI
+import Combine
+import os.log
 
 /// 额度数据中枢：持有 Provider 列表，定时刷新、缓存、错误降级。
 @MainActor
@@ -11,6 +13,27 @@ final class QuotaStore: ObservableObject {
     private var timer: Timer?
     private var interval: TimeInterval = 300
     private var providers: [QuotaProvider] = []
+    private let settings: AppSettings
+    private var cancellables = Set<AnyCancellable>()
+
+    init(settings: AppSettings) {
+        self.settings = settings
+        // 顺序变化（设置面板拖动）即时重排现有数据，不等下次刷新。
+        // $providerOrder 发射的是新值，直接用发射参数排序。
+        settings.$providerOrder
+            .receive(on: RunLoop.main)
+            .sink { [weak self] order in
+                guard let self, !self.quotas.isEmpty else { return }
+                self.quotas.sort {
+                    Self.orderIndex($0.id, in: order) < Self.orderIndex($1.id, in: order)
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private static func orderIndex(_ id: String, in order: [String]) -> Int {
+        order.firstIndex(of: id) ?? Int.max
+    }
 
     var lastUpdatedText: String {
         guard let d = lastUpdated else { return "未刷新" }
@@ -67,6 +90,7 @@ final class QuotaStore: ObservableObject {
                         return ProviderQuota(id: p.id, displayName: p.displayName,
                                              buckets: buckets, fetchedAt: Date(), error: nil)
                     } catch {
+                        os_log("fetch %{public}@ failed: %{public}@", log: .default, type: .error, p.id, error.localizedDescription)
                         return ProviderQuota(id: p.id, displayName: p.displayName,
                                              buckets: [], fetchedAt: Date(),
                                              error: error.localizedDescription)
@@ -87,13 +111,11 @@ final class QuotaStore: ObservableObject {
                 merged.append(r)
             }
         }
-        // 固定顺序：minimax 上、智谱 GLM 中、火山下、Codex 末；并排除已被 configure 剔除的 ID
-        let order = ["minimax", "zhipu_glm", "volcengine", "codex"]
+        // 按 settings.providerOrder 排序（设置面板拖动配置）；并排除已被 configure 剔除的 ID
+        let order = settings.providerOrder
         let currentIDs = Set(providers.map { $0.id })
         self.quotas = merged.sorted {
-            let a = order.firstIndex(of: $0.id) ?? Int.max
-            let b = order.firstIndex(of: $1.id) ?? Int.max
-            return a < b
+            Self.orderIndex($0.id, in: order) < Self.orderIndex($1.id, in: order)
         }.filter { snapshotIDs.contains($0.id) && currentIDs.contains($0.id) }
     }
 }

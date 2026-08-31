@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @ObservedObject var settings: AppSettings
@@ -8,7 +9,9 @@ struct SettingsView: View {
     @State private var volcAk = EnvConfig.get(EnvConfig.volcAk) ?? ""
     @State private var volcSk = EnvConfig.get(EnvConfig.volcSk) ?? ""
     @State private var codexToken = EnvConfig.get(EnvConfig.codexAccessToken) ?? ""
+    @State private var deepSeekKey = EnvConfig.get(EnvConfig.deepSeekApiKey) ?? ""
     @State private var saved = false
+    @State private var dragging: String?
 
     var body: some View {
         Form {
@@ -22,10 +25,40 @@ struct SettingsView: View {
                 Toggle("在菜单栏中显示", isOn: $settings.showMenuBarScrolling)
             }
             Section("平台") {
-                Toggle("MiniMax 月度订阅", isOn: $settings.enabledMinimax)
-                Toggle("智谱 GLM Coding Plan", isOn: $settings.enabledZhipuGLM)
-                Toggle("火山方舟 Agent Plan", isOn: $settings.enabledVolcengine)
-                Toggle("Codex 订阅", isOn: $settings.enabledCodex)
+                Text("拖动行调整桌面卡片的显示顺序。")
+                    .font(.caption2).foregroundStyle(.secondary)
+                // macOS 上 Form/List 管理的行会吞掉 onDrag/onDrop，改用普通 VStack 承载拖放
+                VStack(spacing: 2) {
+                    ForEach(settings.providerOrder.compactMap { id in
+                        AppSettings.allPlatforms.first { $0.id == id }
+                    }) { p in
+                        HStack {
+                            Image(systemName: "line.3.horizontal")
+                                .foregroundStyle(.tertiary)
+                            Toggle(p.name, isOn: toggleBinding(p))
+                            Spacer()
+                            if !settings[keyPath: p.toggle] {
+                                Text("未启用").font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color.primary.opacity(0.04))
+                        )
+                        .onDrag {
+                            dragging = p.id
+                            return NSItemProvider(object: p.id as NSString)
+                        }
+                        .onDrop(of: [.text], delegate: PlatformDropDelegate(
+                            target: p.id,
+                            dragging: $dragging,
+                            onMove: { movePlatform($0, to: $1) }
+                        ))
+                    }
+                }
+                .padding(.vertical, 2)
             }
             Section("API 凭证（存入项目 .env）") {
                 SecureField("MiniMax API Key", text: $minimaxKey)
@@ -33,6 +66,7 @@ struct SettingsView: View {
                 SecureField("火山 Access Key (AK)", text: $volcAk)
                 SecureField("火山 Secret Key (SK)", text: $volcSk)
                 SecureField("Codex Access Token（留空则自动读 codex CLI）", text: $codexToken)
+                SecureField("DeepSeek API Key", text: $deepSeekKey)
                 Text("留空时自动从本地 codex CLI 登录态读取，无需手动粘贴。")
                     .font(.caption2).foregroundStyle(.secondary)
                 HStack {
@@ -74,14 +108,54 @@ struct SettingsView: View {
         .frame(width: 420, height: 600)
     }
 
+    /// 平台开关是独立字段（enabledXxx），拖动列表按 providerOrder 动态驱动，用 keyPath 合成 Binding。
+    private func toggleBinding(_ p: PlatformMeta) -> Binding<Bool> {
+        Binding(
+            get: { settings[keyPath: p.toggle] },
+            set: { settings[keyPath: p.toggle] = $0 }
+        )
+    }
+
+    private func movePlatform(_ dragged: String, to target: String) {
+        guard dragged != target,
+              let from = settings.providerOrder.firstIndex(of: dragged),
+              let to = settings.providerOrder.firstIndex(of: target) else { return }
+        withAnimation {
+            settings.providerOrder.move(fromOffsets: IndexSet(integer: from),
+                                        toOffset: to > from ? to + 1 : to)
+        }
+    }
+
     private func saveCredentials() {
         EnvConfig.set(EnvConfig.minimaxApiKey, minimaxKey)
         EnvConfig.set(EnvConfig.zhipuGlmApiKey, zhipuGlmKey)
         EnvConfig.set(EnvConfig.volcAk, volcAk)
         EnvConfig.set(EnvConfig.volcSk, volcSk)
         EnvConfig.set(EnvConfig.codexAccessToken, codexToken)
+        EnvConfig.set(EnvConfig.deepSeekApiKey, deepSeekKey)
         saved = true
         onSaved()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { saved = false }
+    }
+}
+
+/// 拖动中经过目标行即实时重排（dropEntered），落点以 .move 语义处理。
+private struct PlatformDropDelegate: DropDelegate {
+    let target: String
+    @Binding var dragging: String?
+    let onMove: (String, String) -> Void
+
+    func dropEntered(info: DropInfo) {
+        guard let dragged = dragging else { return }
+        onMove(dragged, target)
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        dragging = nil
+        return true
     }
 }

@@ -12,18 +12,31 @@ struct ProviderQuota: Identifiable {
 /// 单个额度维度（带标签，维度不写死）
 struct QuotaBucket: Identifiable {
     var id: String { label }
-    let label: String           // "5小时" / "7天" / "总额度"
+    let label: String           // "5小时" / "7天" / "总额度" / "余额"
     let used: Double
     let limit: Double
     let percentOnly: Bool       // true 时只显示百分比，不显示 used/limit
     let resetTime: Date?        // 重置时间（5h/7d 有，总额度无）
+    let balanceAmount: Double?  // 余额类维度：金额值，非 nil 时 UI 显示金额而非进度条
+    let currency: String?       // 金额币种："CNY" / "USD"
     var remaining: Double { limit - used }
     var percent: Double { limit > 0 ? min(1, max(0, used / limit)) : 0 }
-    init(label: String, used: Double, limit: Double, percentOnly: Bool = false, resetTime: Date? = nil) {
+    var currencySymbol: String {
+        switch currency {
+        case "CNY": return "¥"
+        case "USD": return "$"
+        case .some(let c): return c + " "
+        case nil: return ""
+        }
+    }
+    init(label: String, used: Double, limit: Double, percentOnly: Bool = false, resetTime: Date? = nil,
+         balanceAmount: Double? = nil, currency: String? = nil) {
         self.label = label
         self.used = used
         self.limit = limit
         self.percentOnly = percentOnly
         self.resetTime = resetTime
+        self.balanceAmount = balanceAmount
+        self.currency = currency
     }
 }

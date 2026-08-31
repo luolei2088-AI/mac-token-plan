@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目
 
-mac-token-plan：macOS 桌面常驻小组件，在桌面上直接显示订阅的各模型额度消耗。当前接入 minimax 月度订阅 + 智谱 GLM Coding Plan + 火山方舟 Agent Plan 月度订阅 + OpenAI Codex 订阅（5h/7d）。形态为桌面常驻透明卡片窗口（NSPanel + SwiftUI）+ 可选的 macOS 菜单栏（NSStatusItem）滚动显示。非菜单栏独占、非 WidgetKit。
+mac-token-plan：macOS 桌面常驻小组件，在桌面上直接显示订阅的各模型额度消耗。当前接入 minimax 月度订阅 + 智谱 GLM Coding Plan + 火山方舟 Agent Plan 月度订阅 + OpenAI Codex 订阅（5h/7d）+ DeepSeek 开放平台余额。形态为桌面常驻透明卡片窗口（NSPanel + SwiftUI）+ 可选的 macOS 菜单栏（NSStatusItem）滚动显示。非菜单栏独占、非 WidgetKit。
 
 ## 构建与运行
 
@@ -19,20 +19,21 @@ mac-token-plan：macOS 桌面常驻小组件，在桌面上直接显示订阅的
 
 分层，数据/业务/UI 解耦。数据流：
 
-`QuotaProvider.fetchQuota()` → `QuotaStore.fetchAll()`（withTaskGroup 并发 + 失败保留旧 buckets 标红 + 按 id 固定顺序排序）→ `[ProviderQuota]` → `WidgetCard` 渲染。
+`QuotaProvider.fetchQuota()` → `QuotaStore.fetchAll()`（withTaskGroup 并发 + 失败保留旧 buckets 标红 + 按 `AppSettings.providerOrder` 排序）→ `[ProviderQuota]` → `WidgetCard` 渲染。
 
 - **Providers/** - `QuotaProvider` 协议（id/displayName/fetchQuota）。**新增平台 = 新增一个 Provider，不改 Store/UI**，平台间零耦合。
   - `MinimaxProvider`：GET `minimaxi.com/v1/token_plan/remains`，Bearer。只取 `modelName == "general"`，用 `remaining_percent` 反推 used/limit（返回无 total 字段）。无总额度维度，只有 5h/7d。
-  - `ZhipuGLMProvider`：GET `open.bigmodel.cn/api/monitor/usage/quota/limit`，Authorization: raw token（不带 Bearer 前缀，按内版接口）。响应 `data.limits[]`，按 `type` 区分桶：`TIME_LIMIT → "5小时"`、`TOKENS_LIMIT → "总额度"`（多条自动 `·N` 区分）。`percentage` 直接当已用占比 0-100。
+  - `ZhipuGLMProvider`：GET `open.bigmodel.cn/api/monitor/usage/quota/limit`，Authorization: raw token（不带 Bearer 前缀，按内版接口）。响应 `data.limits[]`，按 `type` 区分桶：`TIME_LIMIT → "5小时"`、`TOKENS_LIMIT → "总额度"`；**2026-08 起智谱改版全部返回 `CREDIT_LIMIT`**，用 `unit` 区分窗口：`unit=3` → 小时窗口（`number`=小时数，如 5 → "5小时"）、`unit=6` → "7天"（多条自动 `·N` 区分）。`percentage` 直接当已用占比 0-100。
   - `VolcEngineProvider`：GET `open.volcengineapi.com/?Action=GetAFPUsage&Version=2024-01-01`，**火山引擎 V4 签名**（AK/SK，serviceCode=ark，region=cn-north-1）。ark Bearer key 不能查 Agent Plan 额度，必须 AK/SK 签名。返回 5h/7d/月度总额度/今日（今日已隐藏）。
   - `CodexProvider`：GET `chatgpt.com/backend-api/usage`，Bearer access token。响应 `rate_limits[]` 按 `name` 区分桶：`primary → "5小时"`、`secondary → "7天"`。字段全 Optional + 多 key 兜底（`reset_at` / `reset_seconds`）。401/403 给明确凭证失效提示。**凭证由 `CodexCredential` 提供**：优先读 `~/.codex/auth.json` 的 `tokens.access_token`（codex CLI 已登录 ChatGPT 订阅的场景，开箱即用），缺失时回退 `.env` 的 `CODEX_ACCESS_TOKEN`。每次 fetch 重新读文件，codex CLI 一旦刷新 token 下次拉取就拿到新值。
-- **Store/QuotaStore** - `@MainActor ObservableObject`。定时刷新（默认 5 分钟，可配）、错误降级、固定顺序（minimax → 智谱 GLM → 火山引擎 → Codex）。
+  - `DeepSeekProvider`：GET `api.deepseek.com/user/balance`，Bearer。**充值余额制**，与订阅额度不同：返回字符串金额（`total_balance`）+ 币种，无 used/limit/百分比/重置时间。走**金额桶**（`QuotaBucket.balanceAmount` 非 nil）：UI 显示金额文本、无进度条，>0 绿、≤0 红。`balance_infos[]` 每条一个桶，CNY 的 label 为「余额」，其他币种「余额(USD)」。
+- **Store/QuotaStore** - `@MainActor ObservableObject`，init 注入 `AppSettings`。定时刷新（默认 5 分钟，可配）、错误降级、按 `settings.providerOrder` 排序（设置面板拖动配置，UserDefaults 持久化，默认 minimax → 智谱 GLM → 火山引擎 → Codex → DeepSeek），并订阅 `$providerOrder` 拖动后即时重排，卡片/菜单栏立即跟随。
 - **Window/DesktopPanel** - NSPanel 子类。无边框透明圆角卡片，固定 200×243，`isMovableByWindowBackground` 可拖动。**窗口层级高于菜单栏**（`mainMenuWindow + 1`，可拖到物理顶部，代价是覆盖菜单栏）。`constrainFrameRect` 重写用 `screen.frame` 允许贴物理左/右/下边缘。frame 持久化到 UserDefaults。
 - **Window/MenuBarController** - `NSStatusItem` 控制器（设置开关控制，默认关闭）。订阅 `QuotaStore.objectWillChange` 自动重建段文本，5 秒 `Timer` 切换，循环。点击 status item 弹出 `NSMenu`（立即刷新 / 打开设置 / 退出），菜单回调通过 `MenuActions` 闭包注入，避免反向依赖 AppDelegate。NSStatusBar 由系统独占，与 NSPanel 窗口层级无冲突。
-- **Views/** - SwiftUI（NSHostingView）。`WidgetCard`（卡片+右键菜单+刷新按钮）、`QuotaRow`（胶囊进度条+状态色+倒计时）、`SettingsView`（配置面板，Combine 绑定即时生效）。
+- **Views/** - SwiftUI（NSHostingView）。`WidgetCard`（卡片+右键菜单+刷新按钮）、`QuotaRow`（百分比桶：胶囊进度条+状态色+倒计时；金额桶：金额文本，无进度条）、`SettingsView`（配置面板，Combine 绑定即时生效；「平台」Section 数据驱动，`onDrag/onDrop` + DropDelegate 拖动排序，开关经 `PlatformMeta.toggle` keyPath 合成 Binding）。
 - **App/AppMain** - AppKit 入口（NSApplication，accessory 策略不显 Dock）。AppDelegate 管窗口+store+settings+menuBarController。
 - **Security/** - `EnvConfig`（读写 .env）、`CodexCredential`（优先 `~/.codex/auth.json` / 回退 .env `CODEX_ACCESS_TOKEN`，供 CodexProvider 用）、`LaunchAtLoginHelper`（SMAppService）、`KeychainHelper`（历史方案，保留未用）。
-- **Models/** - `QuotaBucket`（label/used/limit/percentOnly/resetTime，自定义 init 带默认值）、`ProviderQuota`、`AppSettings`。
+- **Models/** - `QuotaBucket`（label/used/limit/percentOnly/resetTime + 金额桶字段 balanceAmount/currency，自定义 init 带默认值）、`ProviderQuota`、`AppSettings`（含 `PlatformMeta` 平台元数据 + `allPlatforms` / `providerOrder`，provider_order 归一化：未知 id 丢弃、缺失 id 按默认顺序追加）。
 
 ## 凭证
 
@@ -43,17 +44,18 @@ ZHIPU_GLM_API_KEY=...
 VOLC_AK=...
 VOLC_SK=...
 CODEX_ACCESS_TOKEN=...
+DEEPSEEK_API_KEY=...
 ```
 `EnvConfig` 按顺序查找 `.env`：当前工作目录（`swift run` 在项目根）、`~/.config/mac-token-plan/.env`（.app 推荐）、.app bundle 同目录。设置面板「API 凭证」可改（写回 .env）。`split("=", maxSplits:1)` 正确处理火山 SK 的 base64 `==` 尾缀。
 
 ## 关键约定
 
-- 额度维度不写死：`QuotaBucket` 带 label，平台返回几种展示几种。
+- 额度维度不写死：`QuotaBucket` 带 label，平台返回几种展示几种。两种形态：**百分比桶**（进度条+状态色）和**金额桶**（`balanceAmount` 非 nil，纯金额文本无进度条，余额 ≤0 标红）。
 - 进度条状态色按**已用占比**：≥95% 红、70-95% 橙、<70% 绿（低饱和 HSB）。
 - 倒计时：5h 行 `H:MM分钟后重置`（小时为 0 则 `MM分钟后重置`），7d 行 `X天Y小时后重置`。`Timer.publish(every:1)` 每秒驱动 `now` 实时递减，独立于接口刷新；接口刷新拿到新 resetTime 后倒计时自动重置。
 - UI 文案中文，代码/标识符英文。
 - 刷新失败保留旧数据并标红，不闪空。
-- 菜单栏段文本格式：`Minimax 5h:10% 7d:20%`，过滤受 `AppSettings.shouldShow(label)` 控制的维度；首次加载前显示 `加载中…`；失败 provider 显示 `Provider: 获取失败`。
+- 菜单栏段文本格式：`Minimax 5h:10% 7d:20%`（金额桶为 `DeepSeek 余额:¥110.00`），过滤受 `AppSettings.shouldShow(label)` 控制的维度；首次加载前显示 `加载中…`；失败 provider 显示 `Provider: 获取失败`。
 
 ## 自主边界（红线，必须先问）
 

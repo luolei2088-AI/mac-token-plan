@@ -5,6 +5,15 @@ struct QuotaRow: View {
     @State private var now = Date()
 
     var body: some View {
+        if bucket.balanceAmount != nil {
+            amountRow
+        } else {
+            percentRow
+        }
+    }
+
+    /// 百分比维度：label + 倒计时 + 进度条 + 已使用 X%
+    private var percentRow: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
                 Text(bucket.label)
@@ -32,6 +41,34 @@ struct QuotaRow: View {
             }
             .frame(maxWidth: .infinity, minHeight: 6, maxHeight: 6)
         }
+    }
+
+    /// 金额维度（余额类）：label + 金额文本，无进度条。>0 绿、≤0 红。
+    private var amountRow: some View {
+        HStack {
+            Text(bucket.label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(amountText)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundStyle(amountColor)
+                .monospacedDigit()
+        }
+    }
+
+    private var amountText: String {
+        let amount = bucket.balanceAmount ?? 0
+        return "\(bucket.currencySymbol)\(String(format: "%.2f", amount))"
+    }
+
+    private var amountColor: Color {
+        let (gh, gs, gb) = (0.35, 0.4, 0.65)   // 绿
+        let (rh, rs, rb) = (0.0, 0.62, 0.82)   // 红
+        return (bucket.balanceAmount ?? 0) > 0
+            ? Color(hue: gh, saturation: gs, brightness: gb)
+            : Color(hue: rh, saturation: rs, brightness: rb)
     }
 
     /// 按已用占比渐变：<70% 绿，70-90% 绿渐变到橙，90-100% 橙渐变到红

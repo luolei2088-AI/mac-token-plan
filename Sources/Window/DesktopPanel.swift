@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import os.log
 
 final class DesktopPanel: NSPanel {
     /// 拖动状态：NSEvent addLocalMonitorForEvents 监听 mouseDown/Dragged/Up，
@@ -48,6 +49,9 @@ final class DesktopPanel: NSPanel {
 
         let hosting = NSHostingView(rootView: contentView)
         hosting.translatesAutoresizingMaskIntoConstraints = false
+        // SwiftUI 内容驱动 intrinsicContentSize（nil proposal 布局，不受窗口当前尺寸污染），
+        // fitHeightToContent 据此量内容真实高度。
+        hosting.sizingOptions = [.intrinsicContentSize]
         self.contentView = hosting
 
         installDragMonitor()
@@ -190,6 +194,25 @@ final class DesktopPanel: NSPanel {
         f.origin.x = max(r.minX, min(f.origin.x, r.maxX - f.width))
         f.origin.y = max(r.minY, min(f.origin.y, r.maxY - f.height))
         return f
+    }
+
+    /// 高度自适应内容：按 SwiftUI 内容的理想高度调整窗口高度（顶部锚定，宽度保持不变）。
+    /// 平台增减（开关、失败降级）会让行数变化，固定初始高度 243 装不下时底部会被裁掉。
+    func fitHeightToContent() {
+        guard let hosting = contentView as? NSHostingView<WidgetCard> else {
+            os_log("fit: cast failed, contentView=%{public}@", log: .default, type: .error, String(describing: contentView))
+            return
+        }
+        hosting.layoutSubtreeIfNeeded()   // 强制 SwiftUI 立即重算，避免读到上一次布局的旧 intrinsic
+        hosting.invalidateIntrinsicContentSize()
+        let raw = hosting.intrinsicContentSize.height
+        let h = max(Self.minSize.height, raw)
+        os_log("fit: intrinsic=%{public}f -> h=%{public}f frame=%{public}f", log: .default, type: .info, raw, h, frame.height)
+        if h <= 0 || abs(h - frame.height) <= 1 { return }
+        var f = frame
+        f.origin.y += f.height - h   // 顶部（maxY）锚定，往下长/缩
+        f.size.height = h
+        setFrame(f, display: true)
     }
 
     func show() {

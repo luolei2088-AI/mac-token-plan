@@ -101,6 +101,10 @@ final class MenuBarController {
             let parts = pq.buckets
                 .filter { settings.shouldShow($0.label) }
                 .map { bucket -> String in
+                    if let amount = bucket.balanceAmount {
+                        // 金额维度（余额类）：显示金额而非百分比
+                        return "\(shortLabel(bucket.label)):\(bucket.currencySymbol)\(String(format: "%.2f", amount))"
+                    }
                     let pct = Int((bucket.percent * 100).rounded())
                     return "\(shortLabel(bucket.label)):\(pct)%"
                 }

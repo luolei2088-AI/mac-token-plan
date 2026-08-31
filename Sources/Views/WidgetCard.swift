@@ -27,7 +27,9 @@ struct WidgetCard: View {
             }
         }
         .padding(12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // 不设 maxHeight: .infinity —— 那会让 ideal 高度无定义，DesktopPanel.fitHeightToContent()
+        // 量不出真实内容高度；窗口高度由 fit 跟随内容，卡片背景恰好铺满窗口。
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: settings.cornerRadius))
         .preferredColorScheme(settings.theme.colorScheme)
         .contextMenu {

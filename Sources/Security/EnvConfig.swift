@@ -10,6 +10,7 @@ enum EnvConfig {
     static let volcSk = "VOLC_SK"
     static let zhipuGlmApiKey = "ZHIPU_GLM_API_KEY"
     static let codexAccessToken = "CODEX_ACCESS_TOKEN"
+    static let deepSeekApiKey = "DEEPSEEK_API_KEY"
 
     private static var envURL: URL? {
         let candidates = [
@@ -17,7 +18,9 @@ enum EnvConfig {
             URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".config/mac-token-plan/.env"),
             URL(fileURLWithPath: Bundle.main.bundlePath).appendingPathComponent(".env"),
         ]
-        return candidates.first { FileManager.default.fileExists(atPath: $0.path) }
+        // resolvingSymlinksInPath：.env 可能是指向真实配置的软链（单一数据源）。
+        // set 的原子写（临时文件+rename）会把软链本身替换掉，必须解析到真实路径再写。
+        return candidates.first { FileManager.default.fileExists(atPath: $0.path) }?.resolvingSymlinksInPath()
     }
 
     static func get(_ key: String) -> String? {

@@ -12,15 +12,33 @@ enum ThemePref: String, CaseIterable {
     var colorScheme: ColorScheme? { self == .system ? nil : (self == .light ? .light : .dark) }
 }
 
+/// 平台元数据：id 与 QuotaProvider.id / ProviderQuota.id 一致，toggle 指向各自的 enabled 开关。
+struct PlatformMeta: Identifiable {
+    let id: String
+    let name: String
+    let toggle: ReferenceWritableKeyPath<AppSettings, Bool>
+}
+
 /// 应用配置。非敏感项持久化到 UserDefaults，凭证走 .env（见 EnvConfig）。
 @MainActor
 final class AppSettings: ObservableObject {
     private let d = UserDefaults.standard
 
+    /// 全部已知平台（UI 列表 + 默认顺序的来源）。
+    static let allPlatforms: [PlatformMeta] = [
+        PlatformMeta(id: "minimax", name: "MiniMax 月度订阅", toggle: \.enabledMinimax),
+        PlatformMeta(id: "zhipu_glm", name: "智谱 GLM Coding Plan", toggle: \.enabledZhipuGLM),
+        PlatformMeta(id: "volcengine", name: "火山方舟 Agent Plan", toggle: \.enabledVolcengine),
+        PlatformMeta(id: "codex", name: "Codex 订阅", toggle: \.enabledCodex),
+        PlatformMeta(id: "deepseek", name: "DeepSeek 开放平台", toggle: \.enabledDeepSeek),
+    ]
+    static let defaultProviderOrder = allPlatforms.map(\.id)
+
     @Published var enabledMinimax: Bool { didSet { d.set(enabledMinimax, forKey: "enabled_minimax") } }
     @Published var enabledZhipuGLM: Bool { didSet { d.set(enabledZhipuGLM, forKey: "enabled_zhipu_glm") } }
     @Published var enabledVolcengine: Bool { didSet { d.set(enabledVolcengine, forKey: "enabled_volcengine") } }
     @Published var enabledCodex: Bool { didSet { d.set(enabledCodex, forKey: "enabled_codex") } }
+    @Published var enabledDeepSeek: Bool { didSet { d.set(enabledDeepSeek, forKey: "enabled_deepseek") } }
     @Published var refreshInterval: Double { didSet { d.set(refreshInterval, forKey: "refresh_interval") } }
     @Published var windowLevel: WindowLevelPref { didSet { d.set(windowLevel.rawValue, forKey: "window_level") } }
     @Published var show5h: Bool { didSet { d.set(show5h, forKey: "show_5h") } }
@@ -32,12 +50,14 @@ final class AppSettings: ObservableObject {
     @Published var launchAtLogin: Bool { didSet { d.set(launchAtLogin, forKey: "launch_at_login") } }
     @Published var lockPosition: Bool { didSet { d.set(lockPosition, forKey: "lock_position") } }
     @Published var showMenuBarScrolling: Bool { didSet { d.set(showMenuBarScrolling, forKey: "show_menu_bar_scrolling") } }
+    @Published var providerOrder: [String] { didSet { d.set(providerOrder, forKey: "provider_order") } }
 
     init() {
         enabledMinimax = d.object(forKey: "enabled_minimax") as? Bool ?? true
         enabledZhipuGLM = d.object(forKey: "enabled_zhipu_glm") as? Bool ?? false
         enabledVolcengine = d.object(forKey: "enabled_volcengine") as? Bool ?? true
         enabledCodex = d.object(forKey: "enabled_codex") as? Bool ?? false
+        enabledDeepSeek = d.object(forKey: "enabled_deepseek") as? Bool ?? false
         refreshInterval = d.object(forKey: "refresh_interval") as? Double ?? 300
         windowLevel = WindowLevelPref(rawValue: d.string(forKey: "window_level") ?? "floating") ?? .floating
         show5h = d.object(forKey: "show_5h") as? Bool ?? true
@@ -49,6 +69,11 @@ final class AppSettings: ObservableObject {
         launchAtLogin = d.object(forKey: "launch_at_login") as? Bool ?? false
         lockPosition = d.object(forKey: "lock_position") as? Bool ?? false
         showMenuBarScrolling = d.object(forKey: "show_menu_bar_scrolling") as? Bool ?? false
+        // 顺序归一化：丢弃未知 id，缺失（新版本新增平台/旧用户无存储）的按默认顺序追加到尾部
+        let storedOrder = d.stringArray(forKey: "provider_order") ?? []
+        var order = storedOrder.filter { id in Self.allPlatforms.contains { $0.id == id } }
+        for p in Self.allPlatforms where !order.contains(p.id) { order.append(p.id) }
+        providerOrder = order
     }
 
     func shouldShow(_ label: String) -> Bool {

@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Combine
+import os.log
 
 @main
 enum AppMain {
@@ -19,8 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var panel: DesktopPanel?
     private var settingsWindow: NSWindow?
     private var menuBarController: MenuBarController?
-    private let store = QuotaStore()
     private let settings = AppSettings()
+    // lazy：属性初始化器不能引用实例属性 settings，首次访问（applicationDidFinishLaunching）时才构建
+    private lazy var store = QuotaStore(settings: settings)
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -35,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.applyLevel(settings.windowLevel)
         panel.applyMovable(settings.lockPosition)
         panel.show()
+        panel.fitHeightToContent()
         self.panel = panel
         store.start()
 
@@ -54,6 +57,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     // MARK: - 设置即时生效
     private func bindSettings() {
+        // 内容行数变化（平台开关、失败降级）后窗口高度自适应；
+        // $quotas 在 willSet 发射，receive(on:) 推到下一 runloop 等 SwiftUI 应用新值后再量高。
+        store.$quotas
+            .receive(on: RunLoop.main)
+            .sink { [weak self] qs in
+                os_log("quotas changed: %{public}d providers", log: .default, type: .info, qs.count)
+                self?.panel?.fitHeightToContent()
+            }
+            .store(in: &cancellables)
         settings.$refreshInterval
             .sink { [weak self] v in self?.store.setRefreshInterval(v) }
             .store(in: &cancellables)
@@ -66,7 +78,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         settings.$enabledMinimax
             .merge(with: settings.$enabledZhipuGLM,
                    settings.$enabledVolcengine,
-                   settings.$enabledCodex)
+                   settings.$enabledCodex,
+                   settings.$enabledDeepSeek)
             // @Published 在 willSet 时发 publisher；sink 内读 self.settings.enabledX 会拿到旧值。
             // 用 receive(on:) 推到下一个 runloop，等 willSet / storage 完成后再读。
             .receive(on: RunLoop.main)
@@ -96,6 +109,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         if settings.enabledCodex {
             ps.append(CodexProvider(credentialLoader: { CodexCredential.load() }))
+        }
+        if settings.enabledDeepSeek,
+           let key = EnvConfig.get(EnvConfig.deepSeekApiKey), !key.isEmpty {
+            ps.append(DeepSeekProvider(apiKey: key))
         }
         return ps
     }

@@ -16,7 +16,7 @@ struct QuotaRow: View {
     private var percentRow: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
-                Text(bucket.label)
+                Text(bucket.displayLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if let reset = bucket.resetTime {
@@ -26,11 +26,12 @@ struct QuotaRow: View {
                         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now = $0 }
                 }
                 Spacer()
-                Text("已使用 \(Int(bucket.percent * 100))%")
+                Text("已用 \(Int(bucket.percent * 100))%")
                     .font(.caption)
                     .fontWeight(.medium)
                     .foregroundStyle(.primary)
                     .monospacedDigit()
+                    .frame(minWidth: 62, alignment: .trailing)   // 固定列宽右对齐，跨行列对齐
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
@@ -46,7 +47,7 @@ struct QuotaRow: View {
     /// 金额维度（余额类）：label + 金额文本，无进度条。>0 绿、≤0 红。
     private var amountRow: some View {
         HStack {
-            Text(bucket.label)
+            Text(bucket.displayLabel)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
@@ -55,6 +56,7 @@ struct QuotaRow: View {
                 .fontWeight(.medium)
                 .foregroundStyle(amountColor)
                 .monospacedDigit()
+                .frame(minWidth: 62, alignment: .trailing)   // 与百分比列同宽右对齐
         }
     }
 

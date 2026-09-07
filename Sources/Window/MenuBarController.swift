@@ -103,10 +103,10 @@ final class MenuBarController {
                 .map { bucket -> String in
                     if let amount = bucket.balanceAmount {
                         // 金额维度（余额类）：显示金额而非百分比
-                        return "\(shortLabel(bucket.label)):\(bucket.currencySymbol)\(String(format: "%.2f", amount))"
+                        return "\(segmentLabel(bucket)):\(bucket.currencySymbol)\(String(format: "%.2f", amount))"
                     }
                     let pct = Int((bucket.percent * 100).rounded())
-                    return "\(shortLabel(bucket.label)):\(pct)%"
+                    return "\(segmentLabel(bucket)):\(pct)%"
                 }
             if parts.isEmpty { return nil }
             return "\(pq.displayName) " + parts.joined(separator: " ")
@@ -123,6 +123,13 @@ final class MenuBarController {
     private func currentTitle() -> String {
         guard !segments.isEmpty else { return "加载中…" }
         return segments[currentIndex]
+    }
+
+    /// 段内维度短标签；有来源标注（Codex 账户/模型额度池）时加前缀区分。
+    private func segmentLabel(_ bucket: QuotaBucket) -> String {
+        let short = shortLabel(bucket.label)
+        if let s = bucket.source, !s.isEmpty { return "\(s)·\(short)" }
+        return short
     }
 
     private func shortLabel(_ label: String) -> String {

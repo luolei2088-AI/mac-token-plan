@@ -3,11 +3,10 @@ import SwiftUI
 import os.log
 
 final class DesktopPanel: NSPanel {
-    /// 拖动状态：NSEvent addLocalMonitorForEvents 监听 mouseDown/Dragged/Up，
-    /// 比 NSPan 平滑（后者在 macOS 上 .changed 触发频率低，会丢中间帧）。
+    /// 拖动状态。窗口位置拖动用系统 isMovableByWindowBackground（window server 层处理，
+    /// accessory/nonactivating 面板未激活时也可靠）；本地 monitor 只负责四角 resize。
     private enum DragMode {
         case idle
-        case position
         case resize(ResizeHandle.Edge)
     }
     private var dragMonitor: Any?
@@ -69,7 +68,8 @@ final class DesktopPanel: NSPanel {
     /// 锁定后禁止背景拖动、窗口移动与调整大小。
     func applyMovable(_ locked: Bool) {
         isMovable = !locked
-        isMovableByWindowBackground = false
+        // 背景位置拖动交给系统（borderless 下无 titlebar ghost 图标问题，且不依赖 app 激活）。
+        isMovableByWindowBackground = !locked
         panEnabled = !locked
         // locked 时整窗不动，corner 自然也不该动。隐藏把手指针顺便断绝鼠标命中。
         for h in resizeHandles {
@@ -82,22 +82,30 @@ final class DesktopPanel: NSPanel {
         }
     }
 
-    /// 拖动全局 listener：mouseDown 看落在哪儿，是 corner → resize、否则 → 位置。
-    /// mouseDragged 直接吃 event.deltaX/Y，每事件精确 1:1 跟随鼠标，零 batching。
+    /// 事件监听：只接管四角 resize。mouseDown 落在 corner handle 内 → resize 模式并吞掉事件
+    /// （return nil，阻止系统 isMovableByWindowBackground 同时移动窗口）；其余区域一律放行，
+    /// 由系统处理背景拖动。
     private func installDragMonitor() {
         dragMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]) { [weak self] event in
             guard let self, event.window === self else { return event }
             switch event.type {
             case .leftMouseDown:
                 self.beginDrag(atWindow: event)
+                if case .resize = self.dragMode { return nil }   // 命中 corner：自己 resize
             case .leftMouseDragged:
-                self.handleDrag(event: event)
+                if case .resize = self.dragMode {
+                    self.handleResize(event: event)
+                    return nil
+                }
             case .leftMouseUp:
-                self.endDrag()
+                if case .resize = self.dragMode {
+                    self.endDrag()
+                    return nil
+                }
             default:
                 break
             }
-            return event
+            return event   // 背景点击/拖动：放行，系统 isMovableByWindowBackground 接管移动
         }
     }
 
@@ -110,31 +118,20 @@ final class DesktopPanel: NSPanel {
         let ptInContent = cv.convert(event.locationInWindow, from: nil)
         if let handle = resizeHandles.first(where: { !$0.isHidden && $0.frame.contains(ptInContent) }) {
             dragMode = .resize(handle.edge)
+            dragStartLocationInWindow = event.locationInWindow
+            dragStartFrame = frame
         } else {
-            dragMode = .position
+            dragMode = .idle   // 背景：交给系统拖动
         }
-        if case .idle = dragMode { return }
-        dragStartLocationInWindow = event.locationInWindow
-        dragStartFrame = frame
     }
 
-    private func handleDrag(event: NSEvent) {
-        switch dragMode {
-        case .position:
-            // event.deltaX/Y 是屏幕坐标系（y 朝下为正），frame.origin 用 NSWindow 坐标系（y 朝上为正）。
-            // 两套轴相反，上下方向需要取反；resize 那条分支用的是 locationInWindow（window 坐标系，不用取反）。
-            setFrameOrigin(NSPoint(
-                x: frame.origin.x + event.deltaX,
-                y: frame.origin.y - event.deltaY
-            ))
-        case .resize(let edge):
-            let cur = event.locationInWindow
-            let dx = cur.x - dragStartLocationInWindow.x
-            let dy = cur.y - dragStartLocationInWindow.y
-            setFrame(computeFrame(edge: edge, start: dragStartFrame, dx: dx, dy: dy), display: true)
-        case .idle:
-            break
-        }
+    private func handleResize(event: NSEvent) {
+        guard case .resize(let edge) = dragMode else { return }
+        // 用 locationInWindow（window 坐标系，y 朝上）相对起始点的位移，对角锚定 resize。
+        let cur = event.locationInWindow
+        let dx = cur.x - dragStartLocationInWindow.x
+        let dy = cur.y - dragStartLocationInWindow.y
+        setFrame(computeFrame(edge: edge, start: dragStartFrame, dx: dx, dy: dy), display: true)
     }
 
     private func endDrag() {

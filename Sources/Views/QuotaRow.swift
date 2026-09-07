@@ -100,7 +100,8 @@ struct QuotaRow: View {
         let days = interval / 86400
         let hours = (interval % 86400) / 3600
         let minutes = (interval % 3600) / 60
-        if label == "7天" {
+        // 7天窗口：剩余满 1 天才显示「X天Y小时」；不足 1 天（days==0）降级为小时:分钟。
+        if label == "7天" && days > 0 {
             return "\(days)天\(hours)小时后重置"
         }
         if hours > 0 {

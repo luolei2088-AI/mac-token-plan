@@ -66,11 +66,17 @@ struct QuotaRow: View {
     }
 
     private var amountColor: Color {
-        let (gh, gs, gb) = (0.35, 0.4, 0.65)   // 绿
-        let (rh, rs, rb) = (0.0, 0.62, 0.82)   // 红
-        return (bucket.balanceAmount ?? 0) > 0
-            ? Color(hue: gh, saturation: gs, brightness: gb)
-            : Color(hue: rh, saturation: rs, brightness: rb)
+        let (gh, gs, gb) = (0.35, 0.4, 0.75)   // 亮绿色（调整亮度更明显）
+        let (oh, os, ob) = (0.07, 0.6, 0.82)   // 橙色
+        let (rh, rs, rb) = (0.0, 0.62, 0.82)   // 红色
+        let amount = bucket.balanceAmount ?? 0
+        if amount > 10 {
+            return Color(hue: gh, saturation: gs, brightness: gb)
+        } else if amount > 0 {
+            return Color(hue: oh, saturation: os, brightness: ob)
+        } else {
+            return Color(hue: rh, saturation: rs, brightness: rb)
+        }
     }
 
     /// 按已用占比渐变：<70% 绿，70-90% 绿渐变到橙，90-100% 橙渐变到红

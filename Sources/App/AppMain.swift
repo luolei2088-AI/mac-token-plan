@@ -19,6 +19,7 @@ enum AppMain {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var panel: DesktopPanel?
     private var settingsWindow: NSWindow?
+    private var statisticsWindow: NSWindow?
     private var menuBarController: MenuBarController?
     private let settings = AppSettings()
     // lazy：属性初始化器不能引用实例属性 settings，首次访问（applicationDidFinishLaunching）时才构建
@@ -29,9 +30,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         store.configure(providers: buildProviders())
         store.setRefreshInterval(settings.refreshInterval)
 
-        let card = WidgetCard(store: store, settings: settings) { [weak self] in
+        let card = WidgetCard(store: store, settings: settings, onOpenSettings: { [weak self] in
             self?.openSettings()
-        }
+        }, onOpenStatistics: { [weak self] in self?.openStatistics() })
         let panel = DesktopPanel(contentView: card)
         panel.delegate = self
         panel.applyLevel(settings.windowLevel)
@@ -135,6 +136,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             settingsWindow = w
         }
         settingsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func openStatistics() {
+        if statisticsWindow == nil {
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 480),
+                             styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+            w.title = "使用量统计"
+            w.isReleasedWhenClosed = false
+            w.contentView = NSHostingView(rootView: UsageStatisticsView(history: store.usageHistory, settings: settings))
+            w.center()
+            statisticsWindow = w
+        }
+        statisticsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 

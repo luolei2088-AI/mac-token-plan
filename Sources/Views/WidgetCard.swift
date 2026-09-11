@@ -4,6 +4,7 @@ struct WidgetCard: View {
     @ObservedObject var store: QuotaStore
     @ObservedObject var settings: AppSettings
     var onOpenSettings: () -> Void
+    var onOpenStatistics: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -35,6 +36,7 @@ struct WidgetCard: View {
         .contextMenu {
             Button("刷新") { store.refresh() }
             Button("设置…") { onOpenSettings() }
+            Button("统计…") { onOpenStatistics() }
             Divider()
             Button("退出") { NSApp.terminate(nil) }
         }

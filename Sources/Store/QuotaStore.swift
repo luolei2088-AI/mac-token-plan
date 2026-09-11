@@ -9,6 +9,7 @@ final class QuotaStore: ObservableObject {
     @Published private(set) var quotas: [ProviderQuota] = []
     @Published private(set) var isRefreshing = false
     @Published private(set) var lastUpdated: Date?
+    let usageHistory: UsageHistoryStore
 
     private var timer: Timer?
     private var interval: TimeInterval = 300
@@ -18,6 +19,7 @@ final class QuotaStore: ObservableObject {
 
     init(settings: AppSettings) {
         self.settings = settings
+        self.usageHistory = UsageHistoryStore()
         // 顺序变化（设置面板拖动）即时重排现有数据，不等下次刷新。
         // $providerOrder 发射的是新值，直接用发射参数排序。
         settings.$providerOrder
@@ -74,6 +76,7 @@ final class QuotaStore: ObservableObject {
             await self.fetchAll()
             self.isRefreshing = false
             self.lastUpdated = Date()
+            self.usageHistory.record(self.quotas)
         }
     }
 

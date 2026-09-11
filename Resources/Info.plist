@@ -9,9 +9,9 @@
     <key>CFBundleIdentifier</key>
     <string>com.zgkc.mac-token-plan</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>2</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>1.2.0</string>
     <key>CFBundleExecutable</key>
     <string>mac-token-plan</string>
     <key>CFBundlePackageType</key>

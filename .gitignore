@@ -4,6 +4,7 @@
 DerivedData/
 Packages/
 *.app
+mac-token-plan-v*.zip
 .env
 .DS_Store
 .claude/

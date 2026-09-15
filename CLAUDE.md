@@ -9,6 +9,7 @@ mac-token-plan：macOS 桌面常驻小组件，在桌面上直接显示订阅的
 ## 构建与运行
 
 - 版本安装包仅上传 GitHub Releases，不提交到代码仓库；README 下载链接指向 Release 附件。
+- README.md 仅介绍软件功能，保留通用下载和更新记录入口，不记录版本更新或开发构建细节。版本更新统一写入根目录 CHANGELOG.md，按新到旧排列，包含版本号、发布日期（北京时间）及新增/改进/修复内容；历史内容以 Release 和 Git 记录为依据。
 
 - `swift run` - 编译并启动（调试模式，读项目根 `.env`）
 - `swift build -c release` - release 构建

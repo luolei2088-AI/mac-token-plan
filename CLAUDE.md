@@ -13,7 +13,7 @@ mac-token-plan：macOS 桌面常驻小组件，在桌面上直接显示订阅的
 - `make app` - 打包 `.build/mac-token-plan.app`（release + 组装 bundle + ad-hoc 签名）
 - `open .build/mac-token-plan.app` - 启动打包后的 .app
 
-注意：`SMAppService` 开机自启仅在 .app bundle 运行时生效，`swift run` 下 register 会失败。无测试、无 lint。
+注意：`SMAppService` 开机自启仅在 .app bundle 运行时生效，`swift run` 下 register 会失败。`swift test` 运行 XCTest；无 lint。
 
 ## 架构与数据流
 
@@ -49,6 +49,17 @@ DEEPSEEK_API_KEY=...
 `EnvConfig` 按顺序查找 `.env`：当前工作目录（`swift run` 在项目根）、`~/.config/mac-token-plan/.env`（.app 推荐）、.app bundle 同目录。设置面板「API 凭证」可改（写回 .env）。`split("=", maxSplits:1)` 正确处理火山 SK 的 base64 `==` 尾缀。
 
 ## 关键约定
+
+### CLI 接入约定
+
+- 设置区分 API 密钥与 CLI 接入；百炼中国站个人版使用 `bl usage token-plan --console-region cn-beijing --console-site domestic --output json`，比例字段为已用 0–1，重置时间为毫秒。
+- CLI 管理代码放 Security，平台解析放 Providers，设置卡片放 Views。Tests 使用 XCTest，新增目录内只存测试源文件，不存真实凭证。
+- `BailianTokenPlanProvider` 的 ID 为 `bailian_token_plan`，开关 `enabledBailian` 默认关闭，追加平台排序末尾；复用 Store/UI/历史采样，不修改额度桶接口。
+- 优先复用用户指定或系统 CLI；下载仅在用户点击安装后执行，使用官方二进制和 SHA256，存 `~/Library/Application Support/mac-token-plan/cli/<工具>/<版本>`，不改 PATH、不安装全局依赖。
+- 登录仅在用户点击后执行。Codex 新登录使用应用专属配置目录和文件存储，已有本地凭证及手动 Token 保持兼容；不记录认证原始输出。
+- Codex 凭证优先级：应用目录 `auth/codex/auth.json` → 原有本地 CLI `auth.json` → `.env` 备用 Token。CLI 程序安装路径和自定义路径存 UserDefaults，凭证仍由各 CLI 管理。
+- 子进程使用 Process 参数数组，异步排空输出，提供超时与取消；安装/登录/用量状态分别显示。查询失败保留旧桶。
+- `swift test` 验证解析、安装资源与进程生命周期；真实登录由用户完成，不在自动测试中执行。
 
 - 额度维度不写死：`QuotaBucket` 带 label，平台返回几种展示几种。两种形态：**百分比桶**（进度条+状态色）和**金额桶**（`balanceAmount` 非 nil，纯金额文本无进度条，余额 ≤0 标红）。
 - 进度条状态色按**已用占比**：≥95% 红、70-95% 橙、<70% 绿（低饱和 HSB）。

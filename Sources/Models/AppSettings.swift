@@ -31,6 +31,7 @@ final class AppSettings: ObservableObject {
         PlatformMeta(id: "volcengine", name: "火山方舟 Agent Plan", toggle: \.enabledVolcengine),
         PlatformMeta(id: "codex", name: "Codex 订阅", toggle: \.enabledCodex),
         PlatformMeta(id: "deepseek", name: "DeepSeek 开放平台", toggle: \.enabledDeepSeek),
+        PlatformMeta(id: "bailian_token_plan", name: "百炼 Token Plan", toggle: \.enabledBailian),
     ]
     static let defaultProviderOrder = allPlatforms.map(\.id)
 
@@ -39,6 +40,7 @@ final class AppSettings: ObservableObject {
     @Published var enabledVolcengine: Bool { didSet { d.set(enabledVolcengine, forKey: "enabled_volcengine") } }
     @Published var enabledCodex: Bool { didSet { d.set(enabledCodex, forKey: "enabled_codex") } }
     @Published var enabledDeepSeek: Bool { didSet { d.set(enabledDeepSeek, forKey: "enabled_deepseek") } }
+    @Published var enabledBailian: Bool { didSet { d.set(enabledBailian, forKey: "enabled_bailian") } }
     @Published var refreshInterval: Double { didSet { d.set(refreshInterval, forKey: "refresh_interval") } }
     @Published var windowLevel: WindowLevelPref { didSet { d.set(windowLevel.rawValue, forKey: "window_level") } }
     @Published var show5h: Bool { didSet { d.set(show5h, forKey: "show_5h") } }
@@ -58,6 +60,7 @@ final class AppSettings: ObservableObject {
         enabledVolcengine = d.object(forKey: "enabled_volcengine") as? Bool ?? true
         enabledCodex = d.object(forKey: "enabled_codex") as? Bool ?? false
         enabledDeepSeek = d.object(forKey: "enabled_deepseek") as? Bool ?? false
+        enabledBailian = d.object(forKey: "enabled_bailian") as? Bool ?? false
         refreshInterval = d.object(forKey: "refresh_interval") as? Double ?? 300
         windowLevel = WindowLevelPref(rawValue: d.string(forKey: "window_level") ?? "floating") ?? .floating
         show5h = d.object(forKey: "show_5h") as? Bool ?? true

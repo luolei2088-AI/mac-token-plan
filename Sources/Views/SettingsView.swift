@@ -60,18 +60,28 @@ struct SettingsView: View {
                 }
                 .padding(.vertical, 2)
             }
-            Section("API 凭证（存入项目 .env）") {
+            Section("API 密钥（存入 .env）") {
                 SecureField("MiniMax API Key", text: $minimaxKey)
                 SecureField("智谱 GLM API Key", text: $zhipuGlmKey)
                 SecureField("火山 Access Key (AK)", text: $volcAk)
                 SecureField("火山 Secret Key (SK)", text: $volcSk)
-                SecureField("Codex Access Token（留空则自动读 codex CLI）", text: $codexToken)
                 SecureField("DeepSeek API Key", text: $deepSeekKey)
-                Text("留空时自动从本地 codex CLI 登录态读取，无需手动粘贴。")
-                    .font(.caption2).foregroundStyle(.secondary)
                 HStack {
                     Button("保存凭证") { saveCredentials() }
                     if saved { Text("已保存").foregroundStyle(.green).font(.caption) }
+                }
+            }
+            Section("CLI 接入") {
+                CLIConnectionView(tool: .bailian, onConnected: onSaved)
+                CLIConnectionView(tool: .codex, onConnected: onSaved)
+                DisclosureGroup("Codex 高级配置") {
+                    SecureField("备用 Access Token", text: $codexToken)
+                    Text("优先使用 CLI 登录；未找到登录凭证时使用此 Token。")
+                        .font(.caption2).foregroundStyle(.secondary)
+                    Button("保存备用 Token") {
+                        EnvConfig.set(EnvConfig.codexAccessToken, codexToken)
+                        onSaved()
+                    }
                 }
             }
             Section("显示维度") {
@@ -131,7 +141,6 @@ struct SettingsView: View {
         EnvConfig.set(EnvConfig.zhipuGlmApiKey, zhipuGlmKey)
         EnvConfig.set(EnvConfig.volcAk, volcAk)
         EnvConfig.set(EnvConfig.volcSk, volcSk)
-        EnvConfig.set(EnvConfig.codexAccessToken, codexToken)
         EnvConfig.set(EnvConfig.deepSeekApiKey, deepSeekKey)
         saved = true
         onSaved()

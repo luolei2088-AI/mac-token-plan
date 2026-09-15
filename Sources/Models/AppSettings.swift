@@ -22,7 +22,7 @@ struct PlatformMeta: Identifiable {
 /// 应用配置。非敏感项持久化到 UserDefaults，凭证走 .env（见 EnvConfig）。
 @MainActor
 final class AppSettings: ObservableObject {
-    private let d = UserDefaults.standard
+    private let d: UserDefaults
 
     /// 全部已知平台（UI 列表 + 默认顺序的来源）。
     static let allPlatforms: [PlatformMeta] = [
@@ -54,7 +54,13 @@ final class AppSettings: ObservableObject {
     @Published var showMenuBarScrolling: Bool { didSet { d.set(showMenuBarScrolling, forKey: "show_menu_bar_scrolling") } }
     @Published var providerOrder: [String] { didSet { d.set(providerOrder, forKey: "provider_order") } }
 
-    init() {
+    var enabledProviderIDs: [String] {
+        let enabled = Set(Self.allPlatforms.filter { self[keyPath: $0.toggle] }.map(\.id))
+        return providerOrder.filter { enabled.contains($0) }
+    }
+
+    init(defaults: UserDefaults = .standard) {
+        d = defaults
         enabledMinimax = d.object(forKey: "enabled_minimax") as? Bool ?? true
         enabledZhipuGLM = d.object(forKey: "enabled_zhipu_glm") as? Bool ?? false
         enabledVolcengine = d.object(forKey: "enabled_volcengine") as? Bool ?? true

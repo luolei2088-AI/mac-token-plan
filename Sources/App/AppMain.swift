@@ -145,9 +145,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func openStatistics() {
         if statisticsWindow == nil {
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 480),
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 720),
                              styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
             w.title = "使用量统计"
+            w.minSize = NSSize(width: 820, height: 560)
             w.isReleasedWhenClosed = false
             w.contentView = NSHostingView(rootView: UsageStatisticsView(history: store.usageHistory, settings: settings))
             w.center()

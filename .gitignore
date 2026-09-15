@@ -8,3 +8,4 @@ mac-token-plan-v*.zip
 .env
 .DS_Store
 .claude/
+.agents/

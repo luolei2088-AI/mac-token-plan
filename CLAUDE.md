@@ -8,6 +8,8 @@ mac-token-plan：macOS 桌面常驻小组件，在桌面上直接显示订阅的
 
 ## 构建与运行
 
+- 版本安装包仅上传 GitHub Releases，不提交到代码仓库；README 下载链接指向 Release 附件。
+
 - `swift run` - 编译并启动（调试模式，读项目根 `.env`）
 - `swift build -c release` - release 构建
 - `make app` - 打包 `.build/mac-token-plan.app`（release + 组装 bundle + ad-hoc 签名）

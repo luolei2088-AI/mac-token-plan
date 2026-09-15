@@ -4,7 +4,7 @@ macOS 桌面常驻小组件，在桌面上直接显示订阅的各模型额度�
 
 ## 最新安装包
 
-[下载 v1.3.0 安装包](mac-token-plan-v1.3.0.zip)（macOS 14+，支持 Apple Silicon 和 Intel）。解压后将 `mac-token-plan.app` 拖入「应用程序」并启动。
+[下载 v1.3.0 安装包](https://github.com/luolei2088-AI/mac-token-plan/releases/download/v1.3.0/mac-token-plan-v1.3.0.zip)（macOS 14+，支持 Apple Silicon 和 Intel）。解压后将 `mac-token-plan.app` 拖入「应用程序」并启动。
 
 v1.3.0 新增百炼 Token Plan 中国站个人版用量查询，以及百炼 / Codex CLI 的安装、登录和连接检测。安装包采用本地 ad-hoc 签名，未经过 Apple 公证。
 

@@ -2,6 +2,13 @@
 
 按版本由新到旧排列，日期采用北京时间。安装包见 [GitHub Releases](https://github.com/luolei2088-AI/mac-token-plan/releases)。
 
+## [1.4.1](https://github.com/luolei2088-AI/mac-token-plan/releases/tag/v1.4.1) · 2026-09-30
+
+### 修复
+
+- 修复正式安装包未包含 SwiftPM 资源 bundle，导致应用启动时找不到 Codex 与 DeepSeek 图标资源并崩溃的问题。
+- 更新发布流程，在打包时复制 SwiftPM 资源 bundle，并验证必要资源已包含在应用包中。
+
 ## [1.4.0](https://github.com/luolei2088-AI/mac-token-plan/releases/tag/v1.4.0) · 2026-09-30
 
 ### 新增

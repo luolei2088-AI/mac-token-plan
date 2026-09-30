@@ -21,8 +21,8 @@ mac-token-plan：macOS 桌面常驻小组件，在桌面上直接显示订阅的
 ## 项目发布与技能目录约定
 
 - 发布本项目时读取 `.agents/skills/mac-token-plan-release/SKILL.md`，适用于 Codex 及遵循本文件的 Claude Code；技能不安装到用户全局目录。
-- `.agents/skills/<技能名>/SKILL.md` 存流程说明，技能内 `scripts/` 只存可复用脚本；构建、压缩包、校验文件和验证截图全部放已忽略的 `.build/`，不提交产物或凭证。
-- 发布包需同时包含 `arm64`、`x86_64`，沿用 macOS 14+；使用技能中的 `scripts/build_release.py` 构建及验证，不用仅面向本机架构的 `make app` 作为正式发布包。
+- `.agents/skills/<技能名>/SKILL.md` 存流程说明；可复用的项目脚本放仓库 `scripts/`。构建、压缩包、校验文件和验证截图全部放已忽略的 `.build/`，不提交产物或凭证。
+- 发布包需同时包含 `arm64`、`x86_64`，沿用 macOS 14+；使用 `python3 scripts/build_release.py --version <版本号>` 构建及验证，不用仅面向本机架构的 `make app` 作为正式发布包。
 - `Resources/Info.plist` 的 `CFBundleShortVersionString` 使用发布版本号，`CFBundleVersion` 每次正式发布递增；Git 标签为 `v<版本号>`。
 - 更新记录写入 `CHANGELOG.md`，README 同步当前功能说明；GitHub Release 使用对应版本更新内容并附安装包、SHA-256 校验文件及签名状态。
 - 用户明确要求完整发布或提交、推送、上传 Release 时，按当次授权完成对应步骤，不重复确认；仅要求准备或构建时，不自动推送或公开发布。其余红线继续适用。

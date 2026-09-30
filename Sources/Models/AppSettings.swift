@@ -12,6 +12,13 @@ enum ThemePref: String, CaseIterable {
     var colorScheme: ColorScheme? { self == .system ? nil : (self == .light ? .light : .dark) }
 }
 
+enum QuotaDisplayMode: String, CaseIterable, Identifiable {
+    case detailed
+    case compact
+    var id: String { rawValue }
+    var title: String { self == .detailed ? "详细" : "精简" }
+}
+
 /// 平台元数据：id 与 QuotaProvider.id / ProviderQuota.id 一致，toggle 指向各自的 enabled 开关。
 struct PlatformMeta: Identifiable {
     let id: String
@@ -54,7 +61,9 @@ final class AppSettings: ObservableObject {
     @Published var launchAtLogin: Bool { didSet { d.set(launchAtLogin, forKey: "launch_at_login") } }
     @Published var lockPosition: Bool { didSet { d.set(lockPosition, forKey: "lock_position") } }
     @Published var showMenuBarScrolling: Bool { didSet { d.set(showMenuBarScrolling, forKey: "show_menu_bar_scrolling") } }
+    @Published var showDesktopCard: Bool { didSet { d.set(showDesktopCard, forKey: "show_desktop_card") } }
     @Published var providerOrder: [String] { didSet { d.set(providerOrder, forKey: "provider_order") } }
+    @Published var quotaDisplayMode: QuotaDisplayMode { didSet { d.set(quotaDisplayMode.rawValue, forKey: "quota_display_mode") } }
 
     var enabledProviderIDs: [String] {
         let enabled = Set(Self.allPlatforms.filter { self[keyPath: $0.toggle] }.map(\.id))
@@ -81,6 +90,8 @@ final class AppSettings: ObservableObject {
         launchAtLogin = d.object(forKey: "launch_at_login") as? Bool ?? false
         lockPosition = d.object(forKey: "lock_position") as? Bool ?? false
         showMenuBarScrolling = d.object(forKey: "show_menu_bar_scrolling") as? Bool ?? false
+        showDesktopCard = d.object(forKey: "show_desktop_card") as? Bool ?? true
+        quotaDisplayMode = QuotaDisplayMode(rawValue: d.string(forKey: "quota_display_mode") ?? "detailed") ?? .detailed
         // 顺序归一化：丢弃未知 id，缺失（新版本新增平台/旧用户无存储）的按默认顺序追加到尾部
         let storedOrder = d.stringArray(forKey: "provider_order") ?? []
         var order = storedOrder.filter { id in Self.allPlatforms.contains { $0.id == id } }
@@ -88,12 +99,5 @@ final class AppSettings: ObservableObject {
         providerOrder = order
     }
 
-    func shouldShow(_ label: String) -> Bool {
-        switch label {
-        case "5小时": return show5h
-        case "7天": return show7d
-        case "总额度": return showTotal
-        default: return true
-        }
-    }
+    func shouldShow(_ label: String) -> Bool { true }
 }

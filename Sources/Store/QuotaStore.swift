@@ -9,6 +9,14 @@ final class QuotaStore: ObservableObject {
     @Published private(set) var quotas: [ProviderQuota] = []
     @Published private(set) var isRefreshing = false
     @Published private(set) var lastUpdated: Date?
+    @Published private(set) var codexAccount: CodexAccountSnapshot?
+    @Published private(set) var codexAccountError: String?
+    @Published private(set) var isLoadingCodexAccount = false
+    @Published private(set) var deepSeekAccount: DeepSeekAccountSnapshot?
+    @Published private(set) var deepSeekAccountError: String?
+    @Published private(set) var isLoadingDeepSeekAccount = false
+    @Published private(set) var isConsumingCodexReset = false
+    @Published private(set) var codexResetResult: String?
     let usageHistory: UsageHistoryStore
 
     private var timer: Timer?
@@ -16,6 +24,7 @@ final class QuotaStore: ObservableObject {
     private var providers: [QuotaProvider] = []
     private let settings: AppSettings
     private var cancellables = Set<AnyCancellable>()
+    private var pendingCodexResetKey: String?
 
     init(settings: AppSettings) {
         self.settings = settings
@@ -77,6 +86,66 @@ final class QuotaStore: ObservableObject {
             self.isRefreshing = false
             self.lastUpdated = Date()
             self.usageHistory.record(self.quotas)
+            if self.settings.enabledCodex { await self.fetchCodexAccount() }
+        }
+    }
+
+    func refreshCodexAccount() {
+        guard settings.enabledCodex else { return }
+        Task { await fetchCodexAccount() }
+    }
+
+    func refreshDeepSeekAccount() {
+        guard settings.enabledDeepSeek, !isLoadingDeepSeekAccount,
+              let apiKey = EnvConfig.get(EnvConfig.deepSeekApiKey), !apiKey.isEmpty else { return }
+        isLoadingDeepSeekAccount = true
+        deepSeekAccountError = nil
+        Task {
+            defer { isLoadingDeepSeekAccount = false }
+            do {
+                deepSeekAccount = try await DeepSeekProvider(apiKey: apiKey).fetchDetails()
+                deepSeekAccountError = nil
+            } catch {
+                deepSeekAccountError = error.localizedDescription
+            }
+        }
+    }
+
+    private func fetchCodexAccount() async {
+        guard !isLoadingCodexAccount else { return }
+        isLoadingCodexAccount = true
+        defer { isLoadingCodexAccount = false }
+        do {
+            codexAccount = try await CodexAppServerClient().fetchSnapshot()
+            codexAccountError = nil
+        } catch {
+            codexAccountError = error.localizedDescription
+        }
+    }
+
+    func consumeCodexReset(creditID: String?) async {
+        guard !isConsumingCodexReset else { return }
+        isConsumingCodexReset = true
+        codexResetResult = nil
+        defer { isConsumingCodexReset = false }
+        do {
+            let idempotencyKey = pendingCodexResetKey ?? UserDefaults.standard.string(forKey: "codex_reset_pending_key") ?? UUID().uuidString
+            pendingCodexResetKey = idempotencyKey
+            UserDefaults.standard.set(idempotencyKey, forKey: "codex_reset_pending_key")
+            let outcome = try await CodexAppServerClient().consumeReset(creditID: creditID, idempotencyKey: idempotencyKey)
+            switch outcome {
+            case "reset": codexResetResult = "重置成功"
+            case "nothingToReset": codexResetResult = "当前没有可重置的额度窗口"
+            case "noCredit": codexResetResult = "没有可用的重置卡"
+            case "alreadyRedeemed": codexResetResult = "此重置请求已完成"
+            default: codexResetResult = "重置结果：\(outcome)"
+            }
+            pendingCodexResetKey = nil
+            UserDefaults.standard.removeObject(forKey: "codex_reset_pending_key")
+            await fetchCodexAccount()
+            refresh()
+        } catch {
+            codexResetResult = error.localizedDescription
         }
     }
 

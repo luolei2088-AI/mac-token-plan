@@ -7,7 +7,8 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "mac-token-plan",
-            path: "Sources"
+            path: "Sources",
+            resources: [.process("Resources")]
         ),
         .testTarget(name: "MacTokenPlanTests", dependencies: ["mac-token-plan"], path: "Tests")
     ]

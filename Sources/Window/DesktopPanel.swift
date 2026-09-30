@@ -25,7 +25,7 @@ final class DesktopPanel: NSPanel {
 
     init<Content: View>(contentView: Content) {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 200, height: 243),
+            contentRect: NSRect(x: 0, y: 0, width: 336, height: 243),
             // 用 .borderless 替代原本的 .titled + .fullSizeContentView：
             // .titled 即便设置了 titlebarAppearsTransparent、隐藏了标准按钮，
             // 系统仍保留 _NSTitlebarView，在 isMovableByWindowBackground=true 时
@@ -212,9 +212,25 @@ final class DesktopPanel: NSPanel {
         setFrame(f, display: true)
     }
 
+    /// 详细/精简模式切换时按当前 SwiftUI 理想尺寸同步窗口宽高。
+    func fitToContent() {
+        guard let hosting = contentView as? NSHostingView<WidgetCard> else { return }
+        hosting.layoutSubtreeIfNeeded()
+        hosting.invalidateIntrinsicContentSize()
+        let size = hosting.intrinsicContentSize
+        guard size.width > 0, size.height > 0 else { return }
+        var f = frame
+        f.origin.y += f.height - max(Self.minSize.height, size.height)
+        f.size = NSSize(width: max(Self.minSize.width, size.width),
+                        height: max(Self.minSize.height, size.height))
+        setFrame(f, display: true)
+    }
+
     func show() {
         if let saved = UserDefaults.standard.string(forKey: "panelFrame") {
-            setFrame(NSRectFromString(saved), display: true)
+            var savedFrame = NSRectFromString(saved)
+            if savedFrame.width < Self.minSize.width { savedFrame.size.width = Self.minSize.width }
+            setFrame(savedFrame, display: true)
         } else if let scr = NSScreen.main {
             var f = self.frame
             f.origin.x = scr.frame.minX

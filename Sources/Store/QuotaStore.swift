@@ -26,9 +26,9 @@ final class QuotaStore: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var pendingCodexResetKey: String?
 
-    init(settings: AppSettings) {
+    init(settings: AppSettings, usageHistory: UsageHistoryStore? = nil) {
         self.settings = settings
-        self.usageHistory = UsageHistoryStore()
+        self.usageHistory = usageHistory ?? UsageHistoryStore()
         // 顺序变化（设置面板拖动）即时重排现有数据，不等下次刷新。
         // $providerOrder 发射的是新值，直接用发射参数排序。
         settings.$providerOrder

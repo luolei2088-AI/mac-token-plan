@@ -177,6 +177,7 @@ final class UsageHistoryTests: XCTestCase {
         let store = UsageHistoryStore(fileURL: url)
         let defaults = try XCTUnwrap(UserDefaults(suiteName: "usage-visual-\(UUID().uuidString)"))
         let settings = AppSettings(defaults: defaults)
+        let quotaStore = QuotaStore(settings: settings, usageHistory: store)
         for platform in AppSettings.allPlatforms { settings[keyPath: platform.toggle] = false }
         settings.enabledVolcengine = true
         settings.enabledCodex = true
@@ -200,7 +201,7 @@ final class UsageHistoryTests: XCTestCase {
         ]
         for (name, appearance, period, width, selectedDate) in scenarios {
             let view = NSHostingView(rootView: UsageStatisticsView(history: name == "empty" ? emptyStore : (name == "zero" ? zeroStore : store), settings: settings,
-                period: period, hoveredDate: selectedDate))
+                store: quotaStore, period: period, hoveredDate: selectedDate))
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: 1350),
                                   styleMask: [.borderless], backing: .buffered, defer: false)
             window.appearance = NSAppearance(named: appearance)

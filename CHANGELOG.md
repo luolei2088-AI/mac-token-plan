@@ -2,6 +2,20 @@
 
 按版本由新到旧排列，日期采用北京时间。安装包见 [GitHub Releases](https://github.com/luolei2088-AI/mac-token-plan/releases)。
 
+## [1.4.0](https://github.com/luolei2088-AI/mac-token-plan/releases/tag/v1.4.0) · 2026-09-30
+
+### 新增
+
+- 新增 Codex 账户详情，展示订阅类型、账户和模型额度窗口、重置倒计时、可用模型及推理能力、Token 用量与每日趋势。
+- 展示 Codex 可用的用量重置卡；使用前确认，每张卡可单独操作。
+- 新增 DeepSeek 账户详情，展示账户状态、各币种余额、充值余额与赠金余额，以及可用模型信息。
+- DeepSeek 花销统计显示余额减少估算，并支持按小时或按日查看趋势。
+
+### 改进
+
+- Codex 与 DeepSeek 用量区域可展开账户详情，并提供前往对应平台页面的入口。
+- 更新桌面卡片与菜单栏的精简展示选项，适配账户详情和重置卡操作。
+
 ## [1.3.1](https://github.com/luolei2088-AI/mac-token-plan/releases/tag/v1.3.1) · 2026-09-15
 
 ### 新增

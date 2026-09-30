@@ -10,7 +10,7 @@ macOS 桌面用量面板，集中查看 AI 服务的订阅额度、账户余额�
 
 ## 产品截图
 
-![](https://zgkc-storage.oss-cn-beijing.aliyuncs.com/mcp-test/22.jpeg)
+![](https://zgkc-storage.oss-cn-beijing.aliyuncs.com/mcp-test/22.png)
 
 ## 新版功能
 

@@ -4,11 +4,6 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @ObservedObject var settings: AppSettings
     var onSaved: () -> Void
-    @State private var minimaxKey = EnvConfig.get(EnvConfig.minimaxApiKey) ?? ""
-    @State private var zhipuGlmKey = EnvConfig.get(EnvConfig.zhipuGlmApiKey) ?? ""
-    @State private var volcAk = EnvConfig.get(EnvConfig.volcAk) ?? ""
-    @State private var volcSk = EnvConfig.get(EnvConfig.volcSk) ?? ""
-    @State private var codexToken = EnvConfig.get(EnvConfig.codexAccessToken) ?? ""
     @State private var deepSeekKey = EnvConfig.get(EnvConfig.deepSeekApiKey) ?? ""
     @State private var saved = false
     @State private var dragging: String?
@@ -24,12 +19,23 @@ struct SettingsView: View {
             Section("菜单栏") {
                 Toggle("在菜单栏中显示", isOn: $settings.showMenuBarScrolling)
             }
+            Section("桌面卡片") {
+                Toggle("显示桌面卡片", isOn: $settings.showDesktopCard)
+                Picker("用量展示", selection: $settings.quotaDisplayMode) {
+                    ForEach(QuotaDisplayMode.allCases) { mode in Text(mode.title).tag(mode) }
+                }
+                .pickerStyle(.segmented)
+                Text("精简模式会缩小卡片，并减少菜单栏中的额度摘要。")
+                    .font(.caption2).foregroundStyle(.secondary)
+                Text("隐藏桌面卡片时，会保留菜单栏入口以便重新显示。")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
             Section("平台") {
                 Text("拖动行调整桌面卡片的显示顺序。")
                     .font(.caption2).foregroundStyle(.secondary)
                 // macOS 上 Form/List 管理的行会吞掉 onDrag/onDrop，改用普通 VStack 承载拖放
                 VStack(spacing: 2) {
-                    ForEach(settings.providerOrder.compactMap { id in
+                    ForEach(settings.providerOrder.filter { $0 == "codex" || $0 == "deepseek" }.compactMap { id in
                         AppSettings.allPlatforms.first { $0.id == id }
                     }) { p in
                         VStack(alignment: .leading, spacing: 2) {
@@ -70,10 +76,6 @@ struct SettingsView: View {
                 .padding(.vertical, 2)
             }
             Section("API 密钥（存入 .env）") {
-                SecureField("MiniMax API Key", text: $minimaxKey)
-                SecureField("智谱 GLM API Key", text: $zhipuGlmKey)
-                SecureField("火山 Access Key (AK)", text: $volcAk)
-                SecureField("火山 Secret Key (SK)", text: $volcSk)
                 SecureField("DeepSeek API Key", text: $deepSeekKey)
                 HStack {
                     Button("保存凭证") { saveCredentials() }
@@ -82,20 +84,6 @@ struct SettingsView: View {
             }
             Section("CLI 接入") {
                 CLIConnectionView(tool: .codex, onConnected: onSaved)
-                DisclosureGroup("Codex 高级配置") {
-                    SecureField("备用 Access Token", text: $codexToken)
-                    Text("优先使用 CLI 登录；未找到登录凭证时使用此 Token。")
-                        .font(.caption2).foregroundStyle(.secondary)
-                    Button("保存备用 Token") {
-                        EnvConfig.set(EnvConfig.codexAccessToken, codexToken)
-                        onSaved()
-                    }
-                }
-            }
-            Section("显示维度") {
-                Toggle("5小时额度", isOn: $settings.show5h)
-                Toggle("7天额度", isOn: $settings.show7d)
-                Toggle("总额度", isOn: $settings.showTotal)
             }
             Section("刷新") {
                 Picker("间隔", selection: $settings.refreshInterval) {
@@ -145,10 +133,6 @@ struct SettingsView: View {
     }
 
     private func saveCredentials() {
-        EnvConfig.set(EnvConfig.minimaxApiKey, minimaxKey)
-        EnvConfig.set(EnvConfig.zhipuGlmApiKey, zhipuGlmKey)
-        EnvConfig.set(EnvConfig.volcAk, volcAk)
-        EnvConfig.set(EnvConfig.volcSk, volcSk)
         EnvConfig.set(EnvConfig.deepSeekApiKey, deepSeekKey)
         saved = true
         onSaved()

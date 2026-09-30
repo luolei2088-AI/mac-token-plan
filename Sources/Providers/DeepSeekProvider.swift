@@ -1,11 +1,7 @@
 import Foundation
 import os.log
 
-/// DeepSeek 开放平台余额。
-/// 接口：GET https://api.deepseek.com/user/balance，Bearer 认证。
-/// 返回充值余额（字符串金额 + 币种），无 used/limit/百分比/重置时间 —— 走金额桶展示（无进度条）。
-/// balance_infos 可能多条（CNY/USD），每条一个桶；CNY 的 label 用「余额」，其他币种带后缀。
-/// granted_balance（赠金）/ topped_up_balance（充值余额）暂不单独展示，只显示 total_balance。
+/// DeepSeek API balance and available model catalog.
 final class DeepSeekProvider: QuotaProvider {
     let id = "deepseek"
     let displayName = "DeepSeek"
@@ -14,44 +10,110 @@ final class DeepSeekProvider: QuotaProvider {
     init(apiKey: String) { self.apiKey = apiKey }
 
     func fetchQuota() async throws -> [QuotaBucket] {
-        guard !apiKey.isEmpty else { throw ProviderError.notConfigured }
-        let keyTail = String(apiKey.suffix(4))
-        os_log("deepseek fetch: keyLen=%d keyTail=%{public}@", log: .default, type: .info, apiKey.count, keyTail)
-        var req = URLRequest(url: URL(string: "https://api.deepseek.com/user/balance")!)
-        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        let (data, resp) = try await URLSession.shared.data(for: req)
-        guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
-            let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
-            if code == 401 || code == 403 {
-                let bodyText = String(data: data, encoding: .utf8) ?? ""
-                os_log("deepseek auth fail http=%d body=%{public}@", log: .default, type: .error, code, bodyText)
-                throw ProviderError.apiError("DeepSeek API Key 无效或已失效 (HTTP \(code))")
-            }
-            throw ProviderError.httpError(code)
-        }
-        let dec = JSONDecoder()
-        dec.keyDecodingStrategy = .convertFromSnakeCase
-        let body = try dec.decode(DeepSeekBalanceResponse.self, from: data)
-        guard let infos = body.balanceInfos, !infos.isEmpty else {
+        let balance = try await fetchBalance()
+        guard let infos = balance.balanceInfos, !infos.isEmpty else {
             throw ProviderError.apiError("余额数据为空")
         }
         return infos.compactMap { info in
             guard let text = info.totalBalance, let amount = Double(text) else { return nil }
-            let cur = info.currency ?? "CNY"
-            let label = cur == "CNY" ? "余额" : "余额(\(cur))"
+            let currency = info.currency ?? "CNY"
+            let label = currency == "CNY" ? "余额" : "余额(\(currency))"
             return QuotaBucket(label: label, used: 0, limit: 0, resetTime: nil,
-                               balanceAmount: amount, currency: cur)
+                               balanceAmount: amount, currency: currency)
+        }
+    }
+
+    func fetchDetails() async throws -> DeepSeekAccountSnapshot {
+        async let balance = fetchBalance()
+        async let modelList: DeepSeekModelsResponse? = try? fetchModels()
+        let balanceResponse = try await balance
+        let modelsResponse = await modelList
+        return DeepSeekAccountSnapshot(isAvailable: balanceResponse.isAvailable,
+                                       balanceInfos: balanceResponse.balanceInfos ?? [],
+                                       models: modelsResponse?.data ?? [],
+                                       modelsError: modelsResponse == nil ? "模型列表暂不可用" : nil,
+                                       fetchedAt: Date())
+    }
+
+    private func fetchBalance() async throws -> DeepSeekBalanceResponse {
+        try await get("https://api.deepseek.com/user/balance")
+    }
+
+    private func fetchModels() async throws -> DeepSeekModelsResponse {
+        try await get("https://api.deepseek.com/models")
+    }
+
+    private func get<Response: Decodable>(_ endpoint: String) async throws -> Response {
+        guard !apiKey.isEmpty else { throw ProviderError.notConfigured }
+        var request = URLRequest(url: URL(string: endpoint)!)
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+        guard status == 200 else {
+            if status == 401 || status == 403 {
+                throw ProviderError.apiError("DeepSeek API Key 无效或已失效 (HTTP \(status))")
+            }
+            throw ProviderError.httpError(status)
+        }
+        do {
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            return try decoder.decode(Response.self, from: data)
+        } catch {
+            os_log("DeepSeek 响应解析失败: %{public}@", log: .default, type: .error, error.localizedDescription)
+            throw ProviderError.apiError("DeepSeek 响应解析失败：\(error.localizedDescription)")
         }
     }
 }
 
-private struct DeepSeekBalanceResponse: Decodable {
-    let isAvailable: Bool?    // 账户是否可调用 API；余额<=0 时 UI 已标红，此处不单独处理
-    let balanceInfos: [BalanceInfo]?
-    struct BalanceInfo: Decodable {
-        let currency: String?
-        let totalBalance: String?
-        let grantedBalance: String?
-        let toppedUpBalance: String?
+struct DeepSeekAccountSnapshot {
+    let isAvailable: Bool?
+    let balanceInfos: [DeepSeekBalanceInfo]
+    let models: [DeepSeekAvailableModel]
+    let modelsError: String?
+    let fetchedAt: Date
+}
+
+struct DeepSeekBalanceResponse: Decodable {
+    let isAvailable: Bool?
+    let balanceInfos: [DeepSeekBalanceInfo]?
+}
+
+struct DeepSeekBalanceInfo: Decodable, Identifiable {
+    var id: String { currency ?? "unknown-currency" }
+    let currency: String?
+    let totalBalance: String?
+    let grantedBalance: String?
+    let toppedUpBalance: String?
+}
+
+struct DeepSeekModelsResponse: Decodable {
+    let data: [DeepSeekAvailableModel]
+}
+
+struct DeepSeekAvailableModel: Decodable, Identifiable {
+    var id: String { modelID }
+    let modelID: String
+    let name: String?
+    let contextWindow: Int?
+    let maxOutputTokens: Int?
+    let inputModalities: [String]?
+    let outputModalities: [String]?
+    let effort: DeepSeekModelEffort?
+
+    enum CodingKeys: String, CodingKey {
+        case modelID = "id"
+        case name
+        case contextWindow
+        case maxOutputTokens
+        case inputModalities
+        case outputModalities
+        case effort
     }
+}
+
+struct DeepSeekModelEffort: Decodable {
+    let supportedLevels: [String]?
+    let defaultLevel: String?
 }

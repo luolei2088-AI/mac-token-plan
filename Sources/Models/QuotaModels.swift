@@ -26,6 +26,10 @@ struct QuotaBucket: Identifiable {
         if let s = source, !s.isEmpty { return "\(s)·\(label)" }
         return label
     }
+    var compactLabel: String {
+        if let s = source, !s.isEmpty { return "\(s) \(label)" }
+        return label
+    }
     var remaining: Double { limit - used }
     var percent: Double { limit > 0 ? min(1, max(0, used / limit)) : 0 }
     var currencySymbol: String {
@@ -35,6 +39,13 @@ struct QuotaBucket: Identifiable {
         case .some(let c): return c + " "
         case nil: return ""
         }
+    }
+    var compactSummary: String {
+        if let balanceAmount {
+            return "\(compactLabel) \(currencySymbol)\(String(format: "%.2f", balanceAmount))"
+        }
+        let usage = source == nil ? "已用" : ""
+        return "\(compactLabel) \(usage)\(Int(percent * 100))%"
     }
     init(label: String, used: Double, limit: Double, percentOnly: Bool = false, resetTime: Date? = nil,
          balanceAmount: Double? = nil, currency: String? = nil, source: String? = nil) {

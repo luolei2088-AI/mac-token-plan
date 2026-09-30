@@ -4,6 +4,7 @@ import Charts
 struct UsageStatisticsView: View {
     @ObservedObject var history: UsageHistoryStore
     @ObservedObject var settings: AppSettings
+    @ObservedObject var store: QuotaStore
     @State private var period: UsagePeriod = .sevenDays
     @State private var providerID: String?
     @State private var window: String?
@@ -11,10 +12,11 @@ struct UsageStatisticsView: View {
     @State private var now = Date()
     @State private var allPoints: [UsagePoint]
 
-    init(history: UsageHistoryStore, settings: AppSettings, period: UsagePeriod = .sevenDays,
+    init(history: UsageHistoryStore, settings: AppSettings, store: QuotaStore, period: UsagePeriod = .sevenDays,
          hoveredDate: Date? = nil) {
         self.history = history
         self.settings = settings
+        self.store = store
         _period = State(initialValue: period)
         _hoveredDate = State(initialValue: hoveredDate)
         let snapshotDate = Date()
@@ -56,6 +58,7 @@ struct UsageStatisticsView: View {
             VStack(alignment: .leading, spacing: 20) {
                 header
                 controls
+                if settings.enabledCodex { codexUsageSection }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), alignment: .top)], alignment: .leading, spacing: 12) {
                     ForEach(providers, id: \.self) { id in providerCard(id) }
                 }
@@ -101,6 +104,55 @@ struct UsageStatisticsView: View {
         }
         .onChange(of: providerID) { _, _ in resetSelection() }
         .onChange(of: window) { _, _ in hoveredDate = nil }
+    }
+
+    @ViewBuilder private var codexUsageSection: some View {
+        if let usage = store.codexAccount?.usage {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Codex Token 用量").font(.headline)
+                    Spacer()
+                    if let total = usage.summary.lifetimeTokens {
+                        Text("累计 \(compactTokens(total)) tokens").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                if let peak = usage.summary.peakDailyTokens {
+                    Text("单日峰值 \(compactTokens(peak)) tokens")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if let days = usage.dailyUsageBuckets, !days.isEmpty {
+                    let visibleDays = Array(days.sorted { $0.startDate < $1.startDate }.suffix(30))
+                    let axisDates = codexAxisDates(visibleDays.map(\.startDate))
+                    Chart(visibleDays) { day in
+                        BarMark(x: .value("日期", day.startDate), y: .value("Tokens", day.tokens))
+                            .foregroundStyle(.blue.gradient)
+                            .cornerRadius(3)
+                            .accessibilityLabel(day.startDate)
+                            .accessibilityValue("\(day.tokens.formatted()) tokens")
+                    }
+                    .chartXAxis {
+                        AxisMarks(values: axisDates) { value in
+                            AxisValueLabel {
+                                if let date = value.as(String.self) {
+                                    Text(codexAxisDate(date)).font(.caption2).fixedSize()
+                                }
+                            }
+                        }
+                    }
+                    .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(.secondary.opacity(0.15)); AxisValueLabel() } }
+                    .frame(height: 205)
+                } else {
+                    Text("Codex 暂未返回每日 Token 数据").font(.caption).foregroundStyle(.secondary)
+                }
+                Text("按 Codex 返回的日期与 Token 数展示；不代表费用或订阅额度。")
+                    .font(.caption2).foregroundStyle(.tertiary)
+            }
+            .padding(20)
+            .background(.background, in: RoundedRectangle(cornerRadius: 16))
+        } else if let error = store.codexAccountError {
+            Label("Codex 账户统计暂不可用：\(error)", systemImage: "info.circle")
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 
     private var header: some View {
@@ -309,6 +361,9 @@ struct UsageStatisticsView: View {
         if value > 0 && value < 0.000001 { return "<0.000001" }
         return value.formatted(.number.precision(.fractionLength(2...6)))
     }
+    private func compactTokens(_ count: Int64) -> String {
+        count.formatted(.number.notation(.compactName).precision(.fractionLength(0...1)))
+    }
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "M月d日 HH:mm"
@@ -318,5 +373,27 @@ struct UsageStatisticsView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = period == .oneDay ? "M/d\nHH:mm" : "M/d"
         return formatter.string(from: date)
+    }
+
+    private func codexAxisDate(_ value: String) -> String {
+        let datePart = String(value.prefix(10))
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.timeZone = TimeZone(secondsFromGMT: 0)
+        parser.dateFormat = "yyyy-MM-dd"
+        guard let date = parser.date(from: datePart) else { return datePart }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "M/d"
+        return formatter.string(from: date)
+    }
+
+    private func codexAxisDates(_ dates: [String]) -> [String] {
+        guard dates.count > 1 else { return dates }
+        let lastIndex = dates.count - 1
+        let step = max(1, Int(ceil(Double(lastIndex) / 5)))
+        var indices = Array(stride(from: 0, through: lastIndex, by: step))
+        if indices.last != lastIndex { indices.append(lastIndex) }
+        return indices.map { dates[$0] }
     }
 }

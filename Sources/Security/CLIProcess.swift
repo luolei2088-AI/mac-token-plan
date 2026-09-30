@@ -34,13 +34,14 @@ final class CLIProcess: @unchecked Sendable {
     }
 
     func run(_ executable: URL, arguments: [String], environment: [String: String],
-             timeout: TimeInterval = 30, outputFile: URL? = nil) async throws -> CLIResult {
+             timeout: TimeInterval = 30, outputFile: URL? = nil, input: Data? = nil) async throws -> CLIResult {
         try await withTaskCancellationHandler(operation: {
             try await withCheckedThrowingContinuation { continuation in
                 DispatchQueue.global(qos: .utility).async {
                     do {
                         let result = try self.runSync(executable, arguments: arguments,
-                                                      environment: environment, timeout: timeout, outputFile: outputFile)
+                                                      environment: environment, timeout: timeout, outputFile: outputFile,
+                                                      input: input)
                         continuation.resume(returning: result)
                     } catch { continuation.resume(throwing: error) }
                 }
@@ -49,13 +50,14 @@ final class CLIProcess: @unchecked Sendable {
     }
 
     private func runSync(_ executable: URL, arguments: [String], environment: [String: String],
-                         timeout: TimeInterval, outputFile: URL?) throws -> CLIResult {
+                         timeout: TimeInterval, outputFile: URL?, input: Data?) throws -> CLIResult {
         let p = Process()
         p.executableURL = executable
         p.arguments = arguments
         p.environment = environment
         p.currentDirectoryURL = URL(fileURLWithPath: NSHomeDirectory())
-        p.standardInput = FileHandle.nullDevice
+        let stdin = input == nil ? nil : Pipe()
+        p.standardInput = stdin?.fileHandleForReading ?? FileHandle.nullDevice
         let out = Pipe(), err = Pipe()
         let fileHandle = try outputFile.map { try FileHandle(forWritingTo: $0) }
         defer { try? fileHandle?.close() }
@@ -67,6 +69,10 @@ final class CLIProcess: @unchecked Sendable {
         if cancelled { lock.unlock(); throw CancellationError() }
         do { try p.run(); process = p; lock.unlock() }
         catch { lock.unlock(); throw CLIError.message("无法启动 CLI，请检查所选文件及运行依赖") }
+        if let input, let stdin {
+            do { try stdin.fileHandleForWriting.write(contentsOf: input) } catch { }
+            try? stdin.fileHandleForWriting.close()
+        }
         // Close our writer copies so readers see EOF after the child exits.
         try? out.fileHandleForWriting.close()
         try? err.fileHandleForWriting.close()

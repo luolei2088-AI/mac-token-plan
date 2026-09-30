@@ -37,8 +37,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.delegate = self
         panel.applyLevel(settings.windowLevel)
         panel.applyMovable(settings.lockPosition)
-        panel.show()
-        panel.fitHeightToContent()
+        panel.alphaValue = CGFloat(settings.opacity)
+        if settings.showDesktopCard { panel.show() }
+        panel.fitToContent()
         self.panel = panel
         store.start()
 
@@ -51,6 +52,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             actions: MenuBarController.MenuActions(
                 refresh: { [weak self] in self?.store.refresh() },
                 openSettings: { [weak self] in self?.openSettings() },
+                toggleDesktopCard: { [weak self] in
+                    guard let self else { return }
+                    self.settings.showDesktopCard.toggle()
+                },
                 quit: { NSApp.terminate(nil) }
             )
         )
@@ -75,6 +80,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .store(in: &cancellables)
         settings.$lockPosition
             .sink { [weak self] v in self?.panel?.applyMovable(v) }
+            .store(in: &cancellables)
+        settings.$opacity
+            .receive(on: RunLoop.main)
+            .sink { [weak self] value in self?.panel?.alphaValue = CGFloat(value) }
+            .store(in: &cancellables)
+        settings.$quotaDisplayMode
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.panel?.fitToContent() }
+            .store(in: &cancellables)
+        settings.$showDesktopCard
+            .receive(on: RunLoop.main)
+            .sink { [weak self] visible in
+                guard let panel = self?.panel else { return }
+                if visible {
+                    panel.fitToContent()
+                    panel.show()
+                } else {
+                    panel.orderOut(nil)
+                }
+            }
             .store(in: &cancellables)
         settings.$enabledMinimax
             .merge(with: settings.$enabledZhipuGLM,
@@ -146,7 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             w.title = "使用量统计"
             w.minSize = NSSize(width: 820, height: 560)
             w.isReleasedWhenClosed = false
-            w.contentView = NSHostingView(rootView: UsageStatisticsView(history: store.usageHistory, settings: settings))
+            w.contentView = NSHostingView(rootView: UsageStatisticsView(history: store.usageHistory, settings: settings, store: store))
             w.center()
             statisticsWindow = w
         }

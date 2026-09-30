@@ -32,13 +32,22 @@ struct SettingsView: View {
                     ForEach(settings.providerOrder.compactMap { id in
                         AppSettings.allPlatforms.first { $0.id == id }
                     }) { p in
-                        HStack {
-                            Image(systemName: "line.3.horizontal")
-                                .foregroundStyle(.tertiary)
-                            Toggle(p.name, isOn: toggleBinding(p))
-                            Spacer()
-                            if !settings[keyPath: p.toggle] {
-                                Text("未启用").font(.caption2).foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                Image(systemName: "line.3.horizontal")
+                                    .foregroundStyle(.tertiary)
+                                Toggle(p.name, isOn: toggleBinding(p))
+                                    .disabled(p.unavailableReason != nil)
+                                Spacer()
+                                if p.unavailableReason != nil {
+                                    Text("暂时下线").font(.caption2).foregroundStyle(.secondary)
+                                } else if !settings[keyPath: p.toggle] {
+                                    Text("未启用").font(.caption2).foregroundStyle(.secondary)
+                                }
+                            }
+                            if let reason = p.unavailableReason {
+                                Text(reason).font(.caption2).foregroundStyle(.secondary)
+                                    .padding(.leading, 28)
                             }
                         }
                         .padding(.vertical, 8)
@@ -72,7 +81,6 @@ struct SettingsView: View {
                 }
             }
             Section("CLI 接入") {
-                CLIConnectionView(tool: .bailian, onConnected: onSaved)
                 CLIConnectionView(tool: .codex, onConnected: onSaved)
                 DisclosureGroup("Codex 高级配置") {
                     SecureField("备用 Access Token", text: $codexToken)
@@ -122,7 +130,7 @@ struct SettingsView: View {
     private func toggleBinding(_ p: PlatformMeta) -> Binding<Bool> {
         Binding(
             get: { settings[keyPath: p.toggle] },
-            set: { settings[keyPath: p.toggle] = $0 }
+            set: { settings[keyPath: p.toggle] = p.unavailableReason == nil ? $0 : false }
         )
     }
 

@@ -48,7 +48,7 @@ final class CLIConnectionStore: ObservableObject {
     func install(_ tool: CLITool) {
         start(tool) { [self] in
             states[tool, default: CLIStatus()].progress = "准备安装…"
-            let url = try await CLIInstaller.install(tool) { message in
+            let url = try await CLIInstaller.install { message in
                 await MainActor.run { self.states[tool, default: CLIStatus()].progress = message }
             }
             try Task.checkCancellation()
@@ -67,11 +67,9 @@ final class CLIConnectionStore: ObservableObject {
                 try FileManager.default.createDirectory(at: CLITool.codexHome, withIntermediateDirectories: true,
                                                        attributes: [.posixPermissions: 0o700])
             }
-            let args = tool == .bailian
-                ? ["auth", "login", "--console", "--console-site", "domestic"]
-                : ["-c", "cli_auth_credentials_store=\"file\"", "login"]
+            let args = ["-c", "cli_auth_credentials_store=\"file\"", "login"]
             let result = try await CLIProcess().run(url, arguments: args,
-                environment: CLITool.environment(executable: url, managedCodex: tool == .codex), timeout: 600)
+                environment: CLITool.environment(executable: url, managedCodex: true), timeout: 600)
             guard result.status == 0 else { throw CLIError.message("登录未完成，请重试并在浏览器中完成授权") }
             try await checkNow(tool)
             onConnected()
@@ -84,16 +82,11 @@ final class CLIConnectionStore: ObservableObject {
 
     private func checkNow(_ tool: CLITool) async throws {
         states[tool, default: CLIStatus()].progress = "正在检查订阅连接…"
-        if tool == .bailian {
-            _ = try await BailianTokenPlanProvider().fetchQuota()
-            states[tool, default: CLIStatus()].connection = "已连接 · 中国站个人版"
-        } else {
-            guard let credential = CodexCredential.load() else {
-                throw CLIError.message("未找到可查询的 ChatGPT 登录凭证，请点击登录；API Key 登录不支持订阅查询")
-            }
-            do { _ = try await CodexProvider(credentialLoader: { CodexCredential.load() }).fetchQuota() }
-            catch { throw CLIError.message("Codex 订阅查询失败，请检查网络、订阅或重新登录") }
-            states[tool, default: CLIStatus()].connection = "已连接 · \(credential.source)"
+        guard let credential = CodexCredential.load() else {
+            throw CLIError.message("未找到可查询的 ChatGPT 登录凭证，请点击登录；API Key 登录不支持订阅查询")
         }
+        do { _ = try await CodexProvider(credentialLoader: { CodexCredential.load() }).fetchQuota() }
+        catch { throw CLIError.message("Codex 订阅查询失败，请检查网络、订阅或重新登录") }
+        states[tool, default: CLIStatus()].connection = "已连接 · \(credential.source)"
     }
 }

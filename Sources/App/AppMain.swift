@@ -80,8 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .merge(with: settings.$enabledZhipuGLM,
                    settings.$enabledVolcengine,
                    settings.$enabledCodex,
-                   settings.$enabledDeepSeek,
-                   settings.$enabledBailian)
+                   settings.$enabledDeepSeek)
             // @Published 在 willSet 时发 publisher；sink 内读 self.settings.enabledX 会拿到旧值。
             // 用 receive(on:) 推到下一个 runloop，等 willSet / storage 完成后再读。
             .receive(on: RunLoop.main)
@@ -115,9 +114,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if settings.enabledDeepSeek,
            let key = EnvConfig.get(EnvConfig.deepSeekApiKey), !key.isEmpty {
             ps.append(DeepSeekProvider(apiKey: key))
-        }
-        if settings.enabledBailian {
-            ps.append(BailianTokenPlanProvider())
         }
         return ps
     }

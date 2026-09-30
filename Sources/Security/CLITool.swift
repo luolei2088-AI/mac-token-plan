@@ -1,10 +1,10 @@
 import Foundation
 
 enum CLITool: String, CaseIterable, Identifiable {
-    case bailian, codex
+    case codex
     var id: String { rawValue }
-    var command: String { self == .bailian ? "bl" : "codex" }
-    var name: String { self == .bailian ? "百炼 Token Plan" : "Codex CLI（ChatGPT 订阅）" }
+    var command: String { "codex" }
+    var name: String { "Codex CLI（ChatGPT 订阅）" }
     var pathKey: String { "cli_path_\(rawValue)" }
     var installedKey: String { "cli_installed_\(rawValue)" }
     static var root: URL {
@@ -18,7 +18,7 @@ enum CLITool: String, CaseIterable, Identifiable {
             return FileManager.default.isExecutableFile(atPath: custom) ? URL(fileURLWithPath: custom) : nil
         }
         let directories = (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(String.init)
-            + ["/opt/homebrew/bin", "/usr/local/bin", NSHomeDirectory() + "/.local/bin", NSHomeDirectory() + "/.bailian/bin"]
+            + ["/opt/homebrew/bin", "/usr/local/bin", NSHomeDirectory() + "/.local/bin"]
         for directory in directories where directory.hasPrefix("/") {
             let url = URL(fileURLWithPath: directory).appendingPathComponent(command)
             if FileManager.default.isExecutableFile(atPath: url.path) { return url }

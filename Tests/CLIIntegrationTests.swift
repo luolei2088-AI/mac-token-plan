@@ -2,84 +2,24 @@ import XCTest
 @testable import mac_token_plan
 
 final class CLIIntegrationTests: XCTestCase {
-    func testBailianWindowsAndMilliseconds() throws {
-        let buckets = try BailianTokenPlanProvider.parse(Data(#"{"per5HourPercentage":0,"per5HourResetTime":1787001180000,"per1WeekPercentage":0.7}"#.utf8))
-        XCTAssertEqual(buckets.map(\.label), ["5小时", "7天"])
-        XCTAssertEqual(buckets[0].used, 0)
-        XCTAssertEqual(buckets[1].used, 70)
-        XCTAssertEqual(buckets[0].resetTime?.timeIntervalSince1970, 1787001180)
-        XCTAssertNil(buckets[1].resetTime)
-    }
-
-    func testWeeklyOnlyAndOverLimit() throws {
-        let buckets = try BailianTokenPlanProvider.parse(Data(#"{"per1WeekPercentage":1.2}"#.utf8))
-        XCTAssertEqual(buckets.count, 1)
-        XCTAssertEqual(buckets[0].label, "7天")
-        XCTAssertEqual(buckets[0].used, 120)
-        XCTAssertEqual(buckets[0].percent, 1)
-    }
-
-    func testInvalidResponseIsNotZeroUsage() {
-        for json in ["{}", "not json", #"{"per1WeekPercentage":-1}"#, #"{"per1WeekPercentage":"bad"}"#] {
-            XCTAssertThrowsError(try BailianTokenPlanProvider.parse(Data(json.utf8)))
-        }
-    }
-
-    func testMissingCLI() async {
-        do {
-            _ = try await BailianTokenPlanProvider(executable: { nil }).fetchQuota()
-            XCTFail("Missing CLI must fail")
-        } catch { XCTAssertTrue(error.localizedDescription.contains("未找到")) }
-    }
-
-    func testBailianCommandAndFailure() async throws {
-        let url = URL(fileURLWithPath: "/test path/bl")
-        let provider = BailianTokenPlanProvider(executable: { url }) { executable, args, env in
-            XCTAssertEqual(executable, url)
-            XCTAssertEqual(args, BailianTokenPlanProvider.arguments)
-            XCTAssertNil(env["OPENAI_API_KEY"])
-            return CLIResult(status: 0, output: Data(#"{"per1WeekPercentage":0.2}"#.utf8))
-        }
-        let buckets = try await provider.fetchQuota()
-        XCTAssertEqual(buckets.first?.used, 20)
-        let failed = BailianTokenPlanProvider(executable: { url }) { _, _, _ in
-            CLIResult(status: 1, output: Data("secret-value".utf8))
-        }
-        do { _ = try await failed.fetchQuota(); XCTFail("Nonzero exit must fail") }
-        catch { XCTAssertFalse(error.localizedDescription.contains("secret-value")) }
-    }
-
-    func testManifestArchitectureAndValidation() throws {
-        let hash = String(repeating: "a", count: 64)
-        let json = """
-        {"version":"1.24.0","assets":{
-        "darwin-arm64":{"file":"arm.zip","inner":"bl-arm","sha256":"\(hash)"},
-        "darwin-x64":{"file":"intel.zip","inner":"bl-intel","sha256":"\(hash)"}}}
-        """
-        XCTAssertEqual(try CLIRelease.parse(Data(json.utf8), tool: .bailian, arm: true).inner, "bl-arm")
-        XCTAssertEqual(try CLIRelease.parse(Data(json.utf8), tool: .bailian, arm: false).inner, "bl-intel")
-        XCTAssertThrowsError(try CLIRelease.parse(Data(json.replacingOccurrences(of: "arm.zip", with: "../arm.zip").utf8), tool: .bailian, arm: true))
-        XCTAssertFalse(CLIRelease.safeName(".."))
-    }
-
     func testCodexManifestRequiresOfficialSourceAndDigest() throws {
         let json = """
         {"tag_name":"rust-v1","assets":[{"name":"codex-aarch64-apple-darwin.tar.gz",
         "browser_download_url":"https://github.com/openai/codex/releases/download/rust-v1/codex-aarch64-apple-darwin.tar.gz",
         "digest":"sha256:\(String(repeating: "b", count: 64))"}]}
         """
-        XCTAssertFalse(try CLIRelease.parse(Data(json.utf8), tool: .codex, arm: true).zip)
-        XCTAssertThrowsError(try CLIRelease.parse(Data(json.replacingOccurrences(of: "github.com", with: "example.com").utf8), tool: .codex, arm: true))
-        XCTAssertThrowsError(try CLIRelease.parse(Data(json.utf8), tool: .codex, arm: false))
-        XCTAssertEqual(try CLIRelease.parse(Data(json.replacingOccurrences(of: "aarch64", with: "x86_64").utf8), tool: .codex, arm: false).inner, "codex-x86_64-apple-darwin")
+        XCTAssertEqual(try CLIRelease.parse(Data(json.utf8), arm: true).inner, "codex-aarch64-apple-darwin")
+        XCTAssertThrowsError(try CLIRelease.parse(Data(json.replacingOccurrences(of: "github.com", with: "example.com").utf8), arm: true))
+        XCTAssertThrowsError(try CLIRelease.parse(Data(json.utf8), arm: false))
+        XCTAssertEqual(try CLIRelease.parse(Data(json.replacingOccurrences(of: "aarch64", with: "x86_64").utf8), arm: false).inner, "codex-x86_64-apple-darwin")
     }
 
     func testArchiveAndChecksumValidation() throws {
-        XCTAssertTrue(CLIInstaller.validEntries(["bl", "README"], member: "bl"))
-        XCTAssertFalse(CLIInstaller.validEntries(["bl", "bl"], member: "bl"))
-        XCTAssertFalse(CLIInstaller.validEntries(["bl", "../outside"], member: "bl"))
-        XCTAssertFalse(CLIInstaller.validEntries(["bl", "/outside"], member: "bl"))
-        XCTAssertFalse(CLIInstaller.validEntries(["other"], member: "bl"))
+        XCTAssertTrue(CLIInstaller.validEntries(["codex-aarch64-apple-darwin", "README"], member: "codex-aarch64-apple-darwin"))
+        XCTAssertFalse(CLIInstaller.validEntries(["codex", "codex"], member: "codex"))
+        XCTAssertFalse(CLIInstaller.validEntries(["codex", "../outside"], member: "codex"))
+        XCTAssertFalse(CLIInstaller.validEntries(["codex", "/outside"], member: "codex"))
+        XCTAssertFalse(CLIInstaller.validEntries(["other"], member: "codex"))
         XCTAssertNoThrow(try CLIInstaller.verifyDigest(actual: "abc", expected: "abc"))
         XCTAssertThrowsError(try CLIInstaller.verifyDigest(actual: "abc", expected: "def"))
     }
@@ -102,9 +42,10 @@ final class CLIIntegrationTests: XCTestCase {
     }
 
     @MainActor
-    func testBailianPlatformRegistration() {
+    func testBailianPlatformIsMarkedUnavailable() {
         XCTAssertEqual(AppSettings.allPlatforms.last?.id, "bailian_token_plan")
         XCTAssertEqual(AppSettings.allPlatforms.last?.toggle, \.enabledBailian)
+        XCTAssertNotNil(AppSettings.allPlatforms.last?.unavailableReason)
     }
 
     func testProcessOutputAndArguments() async throws {

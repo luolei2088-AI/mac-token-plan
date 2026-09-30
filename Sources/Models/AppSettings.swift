@@ -17,6 +17,7 @@ struct PlatformMeta: Identifiable {
     let id: String
     let name: String
     let toggle: ReferenceWritableKeyPath<AppSettings, Bool>
+    var unavailableReason: String? = nil
 }
 
 /// 应用配置。非敏感项持久化到 UserDefaults，凭证走 .env（见 EnvConfig）。
@@ -31,7 +32,8 @@ final class AppSettings: ObservableObject {
         PlatformMeta(id: "volcengine", name: "火山方舟 Agent Plan", toggle: \.enabledVolcengine),
         PlatformMeta(id: "codex", name: "Codex 订阅", toggle: \.enabledCodex),
         PlatformMeta(id: "deepseek", name: "DeepSeek 开放平台", toggle: \.enabledDeepSeek),
-        PlatformMeta(id: "bailian_token_plan", name: "百炼 Token Plan", toggle: \.enabledBailian),
+        PlatformMeta(id: "bailian_token_plan", name: "百炼 Token Plan", toggle: \.enabledBailian,
+                     unavailableReason: "暂时下线：百炼平台迁移至千问，暂未提供 Token 用量获取接口"),
     ]
     static let defaultProviderOrder = allPlatforms.map(\.id)
 
@@ -66,7 +68,8 @@ final class AppSettings: ObservableObject {
         enabledVolcengine = d.object(forKey: "enabled_volcengine") as? Bool ?? true
         enabledCodex = d.object(forKey: "enabled_codex") as? Bool ?? false
         enabledDeepSeek = d.object(forKey: "enabled_deepseek") as? Bool ?? false
-        enabledBailian = d.object(forKey: "enabled_bailian") as? Bool ?? false
+        // 百炼 Token Plan 暂无用量接口，忽略旧版本保存的启用状态。
+        enabledBailian = false
         refreshInterval = d.object(forKey: "refresh_interval") as? Double ?? 300
         windowLevel = WindowLevelPref(rawValue: d.string(forKey: "window_level") ?? "floating") ?? .floating
         show5h = d.object(forKey: "show_5h") as? Bool ?? true

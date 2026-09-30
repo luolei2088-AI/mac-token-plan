@@ -64,9 +64,9 @@ DEEPSEEK_API_KEY=...
 
 ### CLI 接入约定
 
-- 设置区分 API 密钥与 CLI 接入；百炼中国站个人版使用 `bl usage token-plan --console-region cn-beijing --console-site domestic --output json`，比例字段为已用 0–1，重置时间为毫秒。
+- 设置区分 API 密钥与 CLI 接入；百炼 Token Plan 暂时下线，平台迁移至千问后暂未提供 Token 用量获取接口，不提供开启或 CLI 接入。
 - CLI 管理代码放 Security，平台解析放 Providers，设置卡片放 Views。Tests 使用 XCTest，新增目录内只存测试源文件，不存真实凭证。
-- `BailianTokenPlanProvider` 的 ID 为 `bailian_token_plan`，开关 `enabledBailian` 默认关闭，追加平台排序末尾；复用 Store/UI/历史采样，不修改额度桶接口。
+- `bailian_token_plan` 保留在平台列表作为暂时下线提示，不构建 Provider；旧版启用状态会被强制关闭。
 - 优先复用用户指定或系统 CLI；下载仅在用户点击安装后执行，使用官方二进制和 SHA256，存 `~/Library/Application Support/mac-token-plan/cli/<工具>/<版本>`，不改 PATH、不安装全局依赖。
 - 登录仅在用户点击后执行。Codex 新登录使用应用专属配置目录和文件存储，已有本地凭证及手动 Token 保持兼容；不记录认证原始输出。
 - Codex 凭证优先级：应用目录 `auth/codex/auth.json` → 原有本地 CLI `auth.json` → `.env` 备用 Token。CLI 程序安装路径和自定义路径存 UserDefaults，凭证仍由各 CLI 管理。

@@ -44,7 +44,7 @@ struct QuotaRow: View {
         }
     }
 
-    /// 金额维度（余额类）：label + 金额文本，无进度条。>0 绿、≤0 红。
+    /// 金额维度（余额类）：label + 金额文本，无进度条。>0 主文本色（浅色主题下为黑）、≤0 红。
     private var amountRow: some View {
         HStack {
             Text(bucket.displayLabel)
@@ -66,14 +66,10 @@ struct QuotaRow: View {
     }
 
     private var amountColor: Color {
-        let (gh, gs, gb) = (0.35, 0.4, 0.75)   // 亮绿色（调整亮度更明显）
-        let (oh, os, ob) = (0.07, 0.6, 0.82)   // 橙色
         let (rh, rs, rb) = (0.0, 0.62, 0.82)   // 红色
         let amount = bucket.balanceAmount ?? 0
-        if amount > 10 {
-            return Color(hue: gh, saturation: gs, brightness: gb)
-        } else if amount > 0 {
-            return Color(hue: oh, saturation: os, brightness: ob)
+        if amount > 0 {
+            return .primary   // 主文本色：浅色主题下为黑，深色主题下自适应为白，保证可见
         } else {
             return Color(hue: rh, saturation: rs, brightness: rb)
         }
